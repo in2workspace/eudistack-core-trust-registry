@@ -1,0 +1,38 @@
+spring:
+  application:
+    name: eudistack-core-trust-registry
+
+server:
+  port: ${SERVER_PORT:8085}
+
+trust-registry:
+  # EU List of Trusted Lists (ETSI TS 119 612). Pivot LOTLs are followed automatically.
+  lotl-url: ${TRUST_REGISTRY_LOTL_URL:https://ec.europa.eu/tools/lotl/eu-lotl.xml}
+  # Keystore holding the certificates allowed to sign the LOTL, published in the OJEU.
+  official-keystore-path: ${TRUST_REGISTRY_KEYSTORE_PATH:classpath:keystore/oj-keystore.p12}
+  # Synchronised lists are cached here so a restart without connectivity still boots.
+  cache-directory: ${TRUST_REGISTRY_CACHE_DIR:/var/cache/trust-registry}
+  # How long a published snapshot stays usable by an offline consumer.
+  snapshot-time-to-live-seconds: ${TRUST_REGISTRY_SNAPSHOT_TTL:86400}
+  sync:
+    initial-delay: ${TRUST_REGISTRY_SYNC_INITIAL_DELAY:PT10S}
+    interval: ${TRUST_REGISTRY_SYNC_INTERVAL:PT6H}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: when-authorized
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+
+logging:
+  level:
+    es.in2.trustregistry: ${LOG_LEVEL:INFO}

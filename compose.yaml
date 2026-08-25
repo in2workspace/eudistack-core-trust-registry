@@ -1,0 +1,25 @@
+# Local development stack. The platform stack in eudistack-platform-dev consumes
+# this service; run it standalone only while working on the registry itself.
+services:
+  trust-registry:
+    build:
+      context: .
+      args:
+        SKIP_TESTS: "true"
+    container_name: trust-registry
+    ports:
+      - "8085:8085"
+    environment:
+      SERVER_PORT: 8085
+      LOG_LEVEL: DEBUG
+      TRUST_REGISTRY_CACHE_DIR: /var/cache/trust-registry
+    volumes:
+      - trust-registry-cache:/var/cache/trust-registry
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8085/actuator/health/readiness"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  trust-registry-cache:

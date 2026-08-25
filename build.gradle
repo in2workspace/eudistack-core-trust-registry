@@ -1,0 +1,143 @@
+plugins {
+    id 'java'
+    id 'org.springframework.boot' version '3.5.11'
+    id 'io.spring.dependency-management' version '1.1.7'
+    id 'jacoco'
+    id 'checkstyle'
+    id 'org.sonarqube' version '7.2.2.6593'
+    id 'com.github.ben-manes.versions' version '0.53.0'
+    id 'se.patrikerdes.use-latest-versions' version '0.2.19'
+}
+
+group = 'com.eudistack'
+version = '0.1.0-SNAPSHOT'
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(25)
+    }
+}
+
+jacoco {
+    toolVersion = "0.8.14"
+}
+
+configurations {
+    compileOnly {
+        extendsFrom annotationProcessor
+    }
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    // --- Spring Boot Starters ---
+    implementation 'org.springframework.boot:spring-boot-starter-webflux'
+    implementation 'org.springframework.boot:spring-boot-starter-validation'
+    implementation 'org.springframework.boot:spring-boot-starter-actuator'
+
+    // --- Trusted Lists (ETSI TS 119 612) ---
+    // DSS is the European Commission reference implementation for LOTL/TL
+    // handling: pivot chains, MRA, TL signature verification and offline cache.
+    // Licence: LGPL-2.1 (linked, not modified) — see docs/architecture.md AD-2.
+    implementation 'eu.europa.ec.joinup.sd-dss:dss-tsl-validation:6.1.1'
+    implementation 'eu.europa.ec.joinup.sd-dss:dss-service:6.1.1'
+    implementation 'eu.europa.ec.joinup.sd-dss:dss-spi:6.1.1'
+    // DSS delegates string/collection utilities and CRL parsing to a runtime
+    // implementation module; without one it fails at startup, not at compile time.
+    runtimeOnly 'eu.europa.ec.joinup.sd-dss:dss-utils-apache-commons:6.1.1'
+    runtimeOnly 'eu.europa.ec.joinup.sd-dss:dss-crl-parser-x509crl:6.1.1'
+
+    // --- Cryptography ---
+    implementation 'com.nimbusds:nimbus-jose-jwt:9.40'
+    implementation 'org.bouncycastle:bcprov-jdk18on:1.84'
+    implementation 'org.bouncycastle:bcpkix-jdk18on:1.84'
+
+    // --- Documentation ---
+    implementation 'org.springdoc:springdoc-openapi-starter-webflux-ui:2.5.0'
+
+    // --- Caching ---
+    implementation 'com.github.ben-manes.caffeine:caffeine'
+
+    // --- Observability ---
+    implementation 'org.springframework.boot:spring-boot-starter-aop'
+    implementation 'io.micrometer:micrometer-tracing-bridge-otel'
+    implementation 'io.opentelemetry:opentelemetry-exporter-otlp'
+    runtimeOnly 'io.micrometer:micrometer-registry-prometheus'
+    implementation 'net.logstash.logback:logstash-logback-encoder:8.0'
+
+    // --- DevTools ---
+    compileOnly 'org.projectlombok:lombok'
+    annotationProcessor 'org.projectlombok:lombok'
+
+    // --- Testing ---
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation 'io.projectreactor:reactor-test'
+    testImplementation 'com.tngtech.archunit:archunit-junit5:1.4.1'
+}
+
+configurations.configureEach {
+    exclude module: 'slf4j-simple'
+}
+
+// --- Quality & CI ---
+
+sonar {
+    properties {
+        property 'sonar.projectKey', 'in2workspace_eudistack-core-trust-registry'
+        property 'sonar.organization', 'in2workspace'
+        property 'sonar.host.url', 'https://sonarcloud.io'
+        property 'sonar.sources', 'src/main/java,src/main/resources'
+        property 'sonar.coverage.jacoco.xmlReportPaths', 'build/reports/jacoco/test/jacocoTestReport.xml'
+        property 'sonar.coverage.exclusions',
+                'src/main/java/**/TrustRegistryApplication.java'
+    }
+}
+
+checkstyle {
+    configFile = file("${rootDir}/config/checkstyle/checkstyle.xml")
+}
+
+checkstyleMain {
+    source = 'src/main/java'
+}
+
+checkstyleTest {
+    source = 'src/test/java'
+}
+
+// --- Tasks ---
+
+tasks.named('test') {
+    useJUnitPlatform()
+    finalizedBy(tasks.jacocoTestReport)
+}
+
+tasks.jacocoTestReport {
+    dependsOn(tasks.test)
+    reports {
+        xml.required.set(true)
+        csv.required.set(false)
+        html.outputLocation.set(layout.buildDirectory.dir('jacocoHtml'))
+    }
+    classDirectories.setFrom(files(classDirectories.files.collect {
+        fileTree(dir: it, exclude: [
+                "**/TrustRegistryApplication.class",
+                "**/enums/**"
+        ])
+    }))
+}
+
+def isNonStable = { String version ->
+    def stableKeyword = ['RELEASE', 'FINAL', 'GA'].any { it -> version.toUpperCase().contains(it) }
+    def regex = /^[0-9,.v-]+(-r)?$/
+    return !stableKeyword && !(version ==~ regex)
+}
+
+tasks.named("dependencyUpdates").configure {
+    rejectVersionIf {
+        isNonStable(it.candidate.version)
+    }
+}
