@@ -42,13 +42,13 @@ dependencies {
     // DSS is the European Commission reference implementation for LOTL/TL
     // handling: pivot chains, MRA, TL signature verification and offline cache.
     // Licence: LGPL-2.1 (linked, not modified) — see docs/architecture.md AD-2.
-    implementation 'eu.europa.ec.joinup.sd-dss:dss-tsl-validation:6.1.1'
-    implementation 'eu.europa.ec.joinup.sd-dss:dss-service:6.1.1'
-    implementation 'eu.europa.ec.joinup.sd-dss:dss-spi:6.1.1'
+    implementation 'eu.europa.ec.joinup.sd-dss:dss-tsl-validation:6.4'
+    implementation 'eu.europa.ec.joinup.sd-dss:dss-service:6.4'
+    implementation 'eu.europa.ec.joinup.sd-dss:dss-spi:6.4'
     // DSS delegates string/collection utilities and CRL parsing to a runtime
     // implementation module; without one it fails at startup, not at compile time.
-    runtimeOnly 'eu.europa.ec.joinup.sd-dss:dss-utils-apache-commons:6.1.1'
-    runtimeOnly 'eu.europa.ec.joinup.sd-dss:dss-crl-parser-x509crl:6.1.1'
+    runtimeOnly 'eu.europa.ec.joinup.sd-dss:dss-utils-apache-commons:6.4'
+    runtimeOnly 'eu.europa.ec.joinup.sd-dss:dss-crl-parser-x509crl:6.4'
 
     // --- Cryptography ---
     implementation 'com.nimbusds:nimbus-jose-jwt:9.40'
