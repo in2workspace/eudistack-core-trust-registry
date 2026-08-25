@@ -56,8 +56,8 @@ dependencies {
 
     // --- Cryptography ---
     implementation 'com.nimbusds:nimbus-jose-jwt:9.40'
-    implementation 'org.bouncycastle:bcprov-jdk18on:1.84'
-    implementation 'org.bouncycastle:bcpkix-jdk18on:1.84'
+    implementation 'org.bouncycastle:bcprov-jdk18on:1.85'
+    implementation 'org.bouncycastle:bcpkix-jdk18on:1.85'
 
     // --- Documentation ---
     implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.5.0'
