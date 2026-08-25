@@ -1,6 +1,8 @@
 package es.in2.trustregistry.snapshot.infrastructure.adapter;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.nimbusds.jose.JOSEException;
 import com.nimbusds.jose.JOSEObjectType;
 import com.nimbusds.jose.JWSAlgorithm;
 import com.nimbusds.jose.JWSHeader;
@@ -16,7 +18,6 @@ import es.in2.trustregistry.snapshot.domain.port.SnapshotSignerPort;
 import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
-import reactor.core.publisher.Mono;
 
 /**
  * Signs the snapshot with an ES256 key so consumers can verify it offline.
@@ -37,7 +38,7 @@ public class JwsSnapshotSigner implements SnapshotSignerPort {
     }
 
     @PostConstruct
-    void generateEphemeralKey() throws Exception {
+    void generateEphemeralKey() throws JOSEException {
         this.signingKey = new ECKeyGenerator(Curve.P_256).keyID("trust-registry-dev").generate();
         log.warn("Using an ephemeral in-memory signing key; snapshots do not survive a restart");
     }
@@ -48,8 +49,8 @@ public class JwsSnapshotSigner implements SnapshotSignerPort {
     }
 
     @Override
-    public Mono<String> sign(TrustSnapshot snapshot) {
-        return Mono.fromCallable(() -> {
+    public String sign(TrustSnapshot snapshot) {
+        try {
             JWSSigner signer = new ECDSASigner(signingKey);
             JWSHeader header = new JWSHeader.Builder(JWSAlgorithm.ES256)
                     .type(new JOSEObjectType("trust-snapshot+jwt"))
@@ -58,6 +59,8 @@ public class JwsSnapshotSigner implements SnapshotSignerPort {
             JWSObject jws = new JWSObject(header, new Payload(objectMapper.writeValueAsString(snapshot)));
             jws.sign(signer);
             return jws.serialize();
-        });
+        } catch (JOSEException | JsonProcessingException error) {
+            throw new IllegalStateException("Unable to sign the trust snapshot", error);
+        }
     }
 }

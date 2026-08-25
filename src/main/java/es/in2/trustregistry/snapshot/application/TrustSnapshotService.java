@@ -6,7 +6,6 @@ import es.in2.trustregistry.shared.infrastructure.config.TrustRegistryProperties
 import es.in2.trustregistry.snapshot.domain.model.TrustSnapshot;
 import es.in2.trustregistry.snapshot.domain.port.SnapshotSignerPort;
 import org.springframework.stereotype.Service;
-import reactor.core.publisher.Mono;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -35,20 +34,17 @@ public class TrustSnapshotService {
         this.clock = clock;
     }
 
-    public Mono<TrustSnapshot> build(String tenantId) {
-        return Mono.zip(
-                anchorService.currentAnchors().collectList(),
-                entityService.list(tenantId).collectList(),
-                (anchors, entities) -> new TrustSnapshot(
-                        tenantId,
-                        version.incrementAndGet(),
-                        Instant.now(clock),
-                        properties.snapshotTimeToLiveSeconds(),
-                        anchors,
-                        entities));
+    public TrustSnapshot build(String tenantId) {
+        return new TrustSnapshot(
+                tenantId,
+                version.incrementAndGet(),
+                Instant.now(clock),
+                properties.snapshotTimeToLiveSeconds(),
+                anchorService.currentAnchors(),
+                entityService.list(tenantId));
     }
 
-    public Mono<String> buildSigned(String tenantId) {
-        return build(tenantId).flatMap(signer::sign);
+    public String buildSigned(String tenantId) {
+        return signer.sign(build(tenantId));
     }
 }

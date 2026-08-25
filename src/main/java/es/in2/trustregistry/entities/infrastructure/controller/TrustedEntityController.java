@@ -17,8 +17,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
-import reactor.core.publisher.Flux;
-import reactor.core.publisher.Mono;
+
+import java.util.List;
 
 /** Admin API over the private List of Trusted Entities of a tenant. */
 @Tag(name = "Trusted entities", description = "Private List of Trusted Entities (ETSI TS 119 602)")
@@ -34,15 +34,15 @@ public class TrustedEntityController {
 
     @Operation(summary = "List the entities registered for the calling tenant")
     @GetMapping
-    public Flux<TrustedEntity> list(@RequestHeader("X-Tenant") String tenantId) {
+    public List<TrustedEntity> list(@RequestHeader("X-Tenant") String tenantId) {
         return service.list(tenantId);
     }
 
     @Operation(summary = "Register or update an entity in the tenant list")
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public Mono<TrustedEntity> register(@RequestHeader("X-Tenant") String tenantId,
-                                        @Valid @RequestBody TrustedEntity entity) {
+    public TrustedEntity register(@RequestHeader("X-Tenant") String tenantId,
+                                  @Valid @RequestBody TrustedEntity entity) {
         return service.register(new TrustedEntity(
                 tenantId,
                 entity.organizationIdentifier(),
@@ -55,17 +55,17 @@ public class TrustedEntityController {
 
     @Operation(summary = "Check whether an organisation is trusted for a role")
     @GetMapping("/{organizationIdentifier}/trusted")
-    public Mono<Boolean> isTrusted(@RequestHeader("X-Tenant") String tenantId,
-                                   @PathVariable String organizationIdentifier,
-                                   @RequestParam EntityRole role) {
+    public boolean isTrusted(@RequestHeader("X-Tenant") String tenantId,
+                             @PathVariable String organizationIdentifier,
+                             @RequestParam EntityRole role) {
         return service.isTrusted(tenantId, organizationIdentifier, role);
     }
 
     @Operation(summary = "Remove an entity from the tenant list")
     @DeleteMapping("/{organizationIdentifier}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public Mono<Void> revoke(@RequestHeader("X-Tenant") String tenantId,
-                             @PathVariable String organizationIdentifier) {
-        return service.revoke(tenantId, organizationIdentifier);
+    public void revoke(@RequestHeader("X-Tenant") String tenantId,
+                       @PathVariable String organizationIdentifier) {
+        service.revoke(tenantId, organizationIdentifier);
     }
 }

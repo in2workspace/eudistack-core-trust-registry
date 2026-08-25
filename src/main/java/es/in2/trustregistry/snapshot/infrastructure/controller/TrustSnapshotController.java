@@ -10,7 +10,6 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-import reactor.core.publisher.Mono;
 
 import java.util.List;
 import java.util.Map;
@@ -31,19 +30,19 @@ public class TrustSnapshotController {
 
     @Operation(summary = "Signed snapshot of the trust anchors and entities of a tenant")
     @GetMapping(value = "/snapshot", produces = "application/jose")
-    public Mono<String> signedSnapshot(@RequestHeader("X-Tenant") String tenantId) {
+    public String signedSnapshot(@RequestHeader("X-Tenant") String tenantId) {
         return service.buildSigned(tenantId);
     }
 
     @Operation(summary = "Unsigned snapshot, for troubleshooting only")
     @GetMapping(value = "/snapshot/plain", produces = MediaType.APPLICATION_JSON_VALUE)
-    public Mono<TrustSnapshot> plainSnapshot(@RequestHeader("X-Tenant") String tenantId) {
+    public TrustSnapshot plainSnapshot(@RequestHeader("X-Tenant") String tenantId) {
         return service.build(tenantId);
     }
 
     @Operation(summary = "Keys a consumer needs to verify a snapshot signature")
     @GetMapping(value = "/jwks", produces = MediaType.APPLICATION_JSON_VALUE)
-    public Mono<Map<String, Object>> jwks() {
-        return Mono.just(Map.of("keys", List.of(signer.publicKey().toJSONObject())));
+    public Map<String, Object> jwks() {
+        return Map.of("keys", List.of(signer.publicKey().toJSONObject()));
     }
 }

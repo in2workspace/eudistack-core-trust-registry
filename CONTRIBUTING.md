@@ -12,6 +12,8 @@
 - **Time is injected.** Use the `Clock` bean, never `Instant.now()` directly, so validity windows
   stay testable.
 - **Constructor injection only.** No field `@Autowired`. Lombok only where it removes ceremony.
+- **Blocking code on virtual threads.** This service is WebMvc, not WebFlux (`AD-7`). Write plain
+  blocking code; do not introduce `Mono`/`Flux`.
 
 ## Tests
 

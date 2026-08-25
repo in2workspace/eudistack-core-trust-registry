@@ -4,7 +4,8 @@ import es.in2.trustregistry.anchors.domain.model.TrustAnchor;
 import es.in2.trustregistry.anchors.domain.port.OfficialTrustListPort;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
-import reactor.core.publisher.Flux;
+
+import java.util.List;
 
 /**
  * Driven adapter over the European Commission DSS library (ETSI TS 119 612).
@@ -14,14 +15,17 @@ import reactor.core.publisher.Flux;
  * cache and the official OJ keystore as the signing-certificate source, then maps the
  * resulting {@code TrustedListsCertificateSource} entries onto {@link TrustAnchor}.
  * Delivered by US-01 of the Trust Framework epic (EUD-34).
+ *
+ * <p>DSS is blocking by design, which is why this service runs WebMvc on virtual
+ * threads rather than WebFlux.
  */
 @Slf4j
 @Component
 public class DssOfficialTrustListAdapter implements OfficialTrustListPort {
 
     @Override
-    public Flux<TrustAnchor> fetchAnchors() {
+    public List<TrustAnchor> fetchAnchors() {
         log.warn("DSS LOTL synchronisation is not implemented yet (US-01); returning no anchors");
-        return Flux.empty();
+        return List.of();
     }
 }

@@ -1,7 +1,8 @@
 package es.in2.trustregistry.anchors.domain.port;
 
 import es.in2.trustregistry.anchors.domain.model.TrustAnchor;
-import reactor.core.publisher.Flux;
+
+import java.util.List;
 
 /**
  * Driven port: reads trust anchors from the official European trust infrastructure
@@ -10,8 +11,8 @@ import reactor.core.publisher.Flux;
 public interface OfficialTrustListPort {
 
     /**
-     * Synchronises the configured LOTL/TL sources and emits every anchor found.
-     * Implementations MUST verify the signature of each list before emitting anchors.
+     * Synchronises the configured LOTL/TL sources and returns every anchor found.
+     * Implementations MUST verify the signature of each list before returning anchors.
      */
-    Flux<TrustAnchor> fetchAnchors();
+    List<TrustAnchor> fetchAnchors();
 }

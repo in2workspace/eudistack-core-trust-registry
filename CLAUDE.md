@@ -13,6 +13,7 @@ Read [docs/architecture.md](docs/architecture.md) before changing anything struc
 - Tenant scoped: every repository method takes the tenant; trust never crosses tenants.
 - Time is injected through the `Clock` bean, never read statically.
 - Constructor injection only; no field `@Autowired`.
+- WebMvc on virtual threads, never WebFlux: DSS is blocking (`AD-7` in the architecture doc).
 
 ## Commands
 

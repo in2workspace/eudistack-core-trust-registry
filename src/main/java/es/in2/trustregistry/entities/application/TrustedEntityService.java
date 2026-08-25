@@ -4,11 +4,10 @@ import es.in2.trustregistry.entities.domain.model.EntityRole;
 import es.in2.trustregistry.entities.domain.model.TrustedEntity;
 import es.in2.trustregistry.entities.domain.port.TrustedEntityRepositoryPort;
 import org.springframework.stereotype.Service;
-import reactor.core.publisher.Flux;
-import reactor.core.publisher.Mono;
 
 import java.time.Clock;
 import java.time.Instant;
+import java.util.List;
 
 /**
  * Answers the question the whole platform asks: is this organisation trusted, right now,
@@ -25,22 +24,22 @@ public class TrustedEntityService {
         this.clock = clock;
     }
 
-    public Mono<Boolean> isTrusted(String tenantId, String organizationIdentifier, EntityRole role) {
+    public boolean isTrusted(String tenantId, String organizationIdentifier, EntityRole role) {
         Instant now = Instant.now(clock);
         return repository.findByOrganizationIdentifier(tenantId, organizationIdentifier)
                 .map(entity -> entity.isActiveAt(now) && entity.hasRole(role))
-                .defaultIfEmpty(false);
+                .orElse(false);
     }
 
-    public Mono<TrustedEntity> register(TrustedEntity entity) {
+    public TrustedEntity register(TrustedEntity entity) {
         return repository.save(entity);
     }
 
-    public Flux<TrustedEntity> list(String tenantId) {
+    public List<TrustedEntity> list(String tenantId) {
         return repository.findAllByTenant(tenantId);
     }
 
-    public Mono<Void> revoke(String tenantId, String organizationIdentifier) {
-        return repository.delete(tenantId, organizationIdentifier);
+    public void revoke(String tenantId, String organizationIdentifier) {
+        repository.delete(tenantId, organizationIdentifier);
     }
 }

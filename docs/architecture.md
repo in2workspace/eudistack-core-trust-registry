@@ -72,6 +72,7 @@ centralised; **evaluation stays distributed**.
 | `AD-4` | The snapshot is signed and versioned, never served as plain JSON in production | A consumer must be able to trust an artefact it cached hours ago without calling back |
 | `AD-5` | Trust never crosses tenant boundaries; the private list is scoped per tenant | Same isolation invariant as the rest of the platform |
 | `AD-6` | Fail closed: an entity that cannot be resolved is not trusted | A trust registry that fails open is worse than no registry |
+| `AD-7` | Spring WebMvc on virtual threads, not WebFlux | The work is a periodic blocking synchronisation (DSS exposes a fully synchronous API) plus serving a cached snapshot. Reactor would wrap every DSS call in `boundedElastic` and buy nothing but harder stack traces. The Verifier already runs WebMvc |
 
 ## 4. Out of scope
 

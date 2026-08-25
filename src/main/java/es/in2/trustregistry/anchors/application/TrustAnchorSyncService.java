@@ -5,8 +5,8 @@ import es.in2.trustregistry.anchors.domain.port.OfficialTrustListPort;
 import es.in2.trustregistry.anchors.domain.port.TrustAnchorRepositoryPort;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import reactor.core.publisher.Flux;
-import reactor.core.publisher.Mono;
+
+import java.util.List;
 
 /**
  * Keeps the local copy of the official trust anchors in sync with the LOTL/TL sources.
@@ -26,15 +26,16 @@ public class TrustAnchorSyncService {
         this.repository = repository;
     }
 
-    public Mono<Integer> synchronise() {
-        return officialTrustList.fetchAnchors()
+    public int synchronise() {
+        List<TrustAnchor> usable = officialTrustList.fetchAnchors().stream()
                 .filter(TrustAnchor::isUsable)
-                .collectList()
-                .flatMap(anchors -> repository.replaceAll(anchors).thenReturn(anchors.size()))
-                .doOnNext(count -> log.info("Trust anchor sync completed: {} usable anchor(s)", count));
+                .toList();
+        repository.replaceAll(usable);
+        log.info("Trust anchor sync completed: {} usable anchor(s)", usable.size());
+        return usable.size();
     }
 
-    public Flux<TrustAnchor> currentAnchors() {
+    public List<TrustAnchor> currentAnchors() {
         return repository.findAll();
     }
 }

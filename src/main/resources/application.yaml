@@ -1,6 +1,9 @@
 spring:
   application:
     name: eudistack-core-trust-registry
+  threads:
+    virtual:
+      enabled: true
 
 server:
   port: ${SERVER_PORT:8085}
