@@ -51,7 +51,7 @@ dependencies {
     runtimeOnly 'eu.europa.ec.joinup.sd-dss:dss-crl-parser-x509crl:6.1.1'
 
     // --- Cryptography ---
-    implementation 'com.nimbusds:nimbus-jose-jwt:9.40'
+    implementation 'com.nimbusds:nimbus-jose-jwt:10.9.1'
     implementation 'org.bouncycastle:bcprov-jdk18on:1.84'
     implementation 'org.bouncycastle:bcpkix-jdk18on:1.84'
 
