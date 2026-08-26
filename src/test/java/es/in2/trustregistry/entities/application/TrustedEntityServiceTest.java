@@ -92,14 +92,14 @@ class TrustedEntityServiceTest {
     }
 
     @Test
-    void register_NewEntity_DelegatesToTheRepository() {
+    void apply_NewEntity_DelegatesToTheRepository() {
         // Arrange
         TrustedEntity entity = new TrustedEntity(TENANT, ORG_ID, "Acme SL",
                 Set.of(EntityRole.RELYING_PARTY), "pem", NOW, null);
         when(repository.save(entity)).thenReturn(entity);
 
         // Act
-        TrustedEntity saved = service.register(entity);
+        TrustedEntity saved = service.apply(entity);
 
         // Assert
         assertThat(saved).isEqualTo(entity);
@@ -117,9 +117,9 @@ class TrustedEntityServiceTest {
     }
 
     @Test
-    void revoke_ExistingEntity_DelegatesToTheRepository() {
+    void withdraw_EntryNoLongerInConfiguration_DelegatesToTheRepository() {
         // Act
-        service.revoke(TENANT, ORG_ID);
+        service.withdraw(TENANT, ORG_ID);
 
         // Assert
         verify(repository).delete(TENANT, ORG_ID);

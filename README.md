@@ -65,12 +65,10 @@ implementation, rather than a hand-rolled PKIX layer.
 | `GET` | `/trust/v1/snapshot` | Signed snapshot (JWS) for the calling tenant |
 | `GET` | `/trust/v1/snapshot/plain` | Unsigned snapshot, troubleshooting only |
 | `GET` | `/trust/v1/jwks` | Keys needed to verify a snapshot |
-| `GET` | `/trust/v1/entities` | Private list of the calling tenant |
-| `POST` | `/trust/v1/entities` | Register or update an entity |
+| `GET` | `/trust/v1/entities` | Private list of the given tenant |
 | `GET` | `/trust/v1/entities/{organizationIdentifier}/trusted?role=` | Point check |
-| `DELETE` | `/trust/v1/entities/{organizationIdentifier}` | Remove an entity |
 
-Every call is tenant scoped through the `X-Tenant` header. OpenAPI lives at `/swagger-ui.html`.
+The API is read-only. Trust is changed by changing the provisioned configuration, never through an endpoint — see [docs/architecture.md](docs/architecture.md) AD-9. The `X-Tenant` header selects which tenant's list to read; a list of trusted entities is a publishable artefact, so reading is not restricted. OpenAPI lives at `/swagger-ui.html`.
 
 ## Running it
 
