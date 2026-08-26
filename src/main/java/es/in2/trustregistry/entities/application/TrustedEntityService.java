@@ -31,7 +31,11 @@ public class TrustedEntityService {
                 .orElse(false);
     }
 
-    public TrustedEntity register(TrustedEntity entity) {
+    /**
+     * Applies one entry of the provisioned configuration. Reachable only from the
+     * configuration loader, never from an HTTP endpoint — see AD-9.
+     */
+    public TrustedEntity apply(TrustedEntity entity) {
         return repository.save(entity);
     }
 
@@ -39,7 +43,11 @@ public class TrustedEntityService {
         return repository.findAllByTenant(tenantId);
     }
 
-    public void revoke(String tenantId, String organizationIdentifier) {
+    /**
+     * Drops an entry that the provisioned configuration no longer contains.
+     * Reachable only from the configuration loader — see AD-9.
+     */
+    public void withdraw(String tenantId, String organizationIdentifier) {
         repository.delete(tenantId, organizationIdentifier);
     }
 }

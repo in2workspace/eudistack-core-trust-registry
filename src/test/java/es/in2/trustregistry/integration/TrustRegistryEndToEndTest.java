@@ -9,12 +9,11 @@ import es.in2.trustregistry.entities.domain.model.TrustedEntity;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import es.in2.trustregistry.entities.domain.port.TrustedEntityRepositoryPort;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
 
 import java.time.Instant;
 import java.util.Set;
@@ -37,11 +36,10 @@ class TrustRegistryEndToEndTest {
     @Autowired
     private TestRestTemplate rest;
 
-    private static HttpEntity<TrustedEntity> request(String tenantId, TrustedEntity body) {
-        HttpHeaders headers = new HttpHeaders();
-        headers.set("X-Tenant", tenantId);
-        return new HttpEntity<>(body, headers);
-    }
+    // Seeded through the port, not through HTTP: the service exposes no write
+    // endpoint — the list arrives as provisioned configuration (AD-9).
+    @Autowired
+    private TrustedEntityRepositoryPort repository;
 
     private static HttpEntity<Void> headers(String tenantId) {
         HttpHeaders headers = new HttpHeaders();
@@ -49,18 +47,15 @@ class TrustRegistryEndToEndTest {
         return new HttpEntity<>(headers);
     }
 
-    private void register(String tenantId, String organizationIdentifier, EntityRole role) {
-        TrustedEntity entity = new TrustedEntity(tenantId, organizationIdentifier, "Acme SL",
-                Set.of(role), "pem", Instant.now().minusSeconds(60), null);
-        ResponseEntity<TrustedEntity> response =
-                rest.exchange("/trust/v1/entities", HttpMethod.POST, request(tenantId, entity), TrustedEntity.class);
-        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+    private void provision(String tenantId, String organizationIdentifier, EntityRole role) {
+        repository.save(new TrustedEntity(tenantId, organizationIdentifier, "Acme SL",
+                Set.of(role), "pem", Instant.now().minusSeconds(60), null));
     }
 
     @Test
     void publishedSnapshot_VerifiedWithThePublishedJwks_IsAuthentic() throws Exception {
         // Arrange
-        register(TENANT_A, ORG_ID, EntityRole.RELYING_PARTY);
+        provision(TENANT_A, ORG_ID, EntityRole.RELYING_PARTY);
 
         // Act
         String jwks = rest.getForObject("/trust/v1/jwks", String.class);
@@ -77,7 +72,7 @@ class TrustRegistryEndToEndTest {
     @Test
     void snapshot_EntityRegisteredInAnotherTenant_IsNotIncluded() throws Exception {
         // Arrange
-        register(TENANT_A, "VATES-ONLY-IN-A", EntityRole.RELYING_PARTY);
+        provision(TENANT_A, "VATES-ONLY-IN-A", EntityRole.RELYING_PARTY);
 
         // Act
         String snapshot = rest.exchange("/trust/v1/snapshot", HttpMethod.GET, headers(TENANT_B), String.class).getBody();
@@ -89,7 +84,7 @@ class TrustRegistryEndToEndTest {
     @Test
     void trustCheck_OrganizationRegisteredInAnotherTenant_IsNotTrusted() {
         // Arrange
-        register(TENANT_A, ORG_ID, EntityRole.RELYING_PARTY);
+        provision(TENANT_A, ORG_ID, EntityRole.RELYING_PARTY);
 
         // Act
         Boolean fromOtherTenant = rest.exchange(
@@ -107,7 +102,7 @@ class TrustRegistryEndToEndTest {
     @Test
     void trustCheck_RoleNotRegisteredForTheOrganization_IsNotTrusted() {
         // Arrange
-        register(TENANT_A, "VATES-WALLET-ONLY", EntityRole.WALLET_PROVIDER);
+        provision(TENANT_A, "VATES-WALLET-ONLY", EntityRole.WALLET_PROVIDER);
 
         // Act
         Boolean trusted = rest.exchange(
