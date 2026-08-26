@@ -1,6 +1,6 @@
 plugins {
     id 'java'
-    id 'org.springframework.boot' version '3.5.11'
+    id 'org.springframework.boot' version '3.5.16'
     id 'io.spring.dependency-management' version '1.1.7'
     id 'jacoco'
     id 'checkstyle'
@@ -68,7 +68,9 @@ dependencies {
     implementation 'com.github.ben-manes.caffeine:caffeine'
 
     // --- Observability ---
-    implementation 'org.springframework.boot:spring-boot-starter-aop'
+    // No spring-boot-starter-aop: nothing here uses AOP, and Boot 4 stops
+    // managing that starter — leaving it in would be one more thing to unpick
+    // during the migration. See docs/architecture.md AD-8.
     implementation 'io.micrometer:micrometer-tracing-bridge-otel'
     implementation 'io.opentelemetry:opentelemetry-exporter-otlp'
     runtimeOnly 'io.micrometer:micrometer-registry-prometheus'
@@ -81,6 +83,13 @@ dependencies {
     // --- Testing ---
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testImplementation 'com.tngtech.archunit:archunit-junit5:1.5.0'
+
+    // --- Integration Testing ---
+    // Testcontainers is the validation strategy while there is no deployed
+    // environment: the image itself is exercised, not a mock of it.
+    testImplementation 'org.springframework.boot:spring-boot-testcontainers'
+    testImplementation 'org.testcontainers:junit-jupiter'
+    testImplementation 'org.awaitility:awaitility'
 }
 
 configurations.configureEach {
@@ -116,8 +125,26 @@ checkstyleTest {
 // --- Tasks ---
 
 tasks.named('test') {
-    useJUnitPlatform()
+    useJUnitPlatform {
+        // Container tests build and boot the Docker image, which takes minutes.
+        // Keeping them out of `test` leaves the inner loop fast; CI runs them
+        // through the `integrationTest` task below.
+        excludeTags 'container'
+    }
     finalizedBy(tasks.jacocoTestReport)
+}
+
+// Exercises the packaged image itself via Testcontainers. While there is no
+// deployed environment, this is what stands in for a smoke test against one.
+tasks.register('integrationTest', Test) {
+    description = 'Runs the Testcontainers integration tests (tag: container).'
+    group = 'verification'
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+    useJUnitPlatform {
+        includeTags 'container'
+    }
+    shouldRunAfter(tasks.named('test'))
 }
 
 tasks.jacocoTestReport {

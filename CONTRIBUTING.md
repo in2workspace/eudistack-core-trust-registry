@@ -22,9 +22,12 @@ Reactive types are asserted with `StepVerifier`. Mockito classic, no `MockedStat
 no alternative.
 
 ```bash
-./gradlew build     # compile + test + checkstyle + jacoco
-./gradlew test      # tests only
+./gradlew build            # compile + unit and integration tests + checkstyle + jacoco
+./gradlew test             # fast tests only
+./gradlew integrationTest  # Testcontainers tests (tag: container) — builds and boots the image
 ```
+
+Container tests are tagged `container` and excluded from `test` because building the image takes minutes. Anything that needs real infrastructure — the LOTL source, a database — belongs there, against a container, never against a mock of the infrastructure.
 
 ## Commits and branches
 
