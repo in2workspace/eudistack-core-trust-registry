@@ -16,7 +16,7 @@ class InMemoryTrustAnchorRepositoryTest {
 
     private static TrustAnchor anchor(String subject) {
         return new TrustAnchor(subject, "pem", "ES", "serviceType",
-                TrustServiceStatus.GRANTED, Instant.parse("2026-01-01T00:00:00Z"));
+                TrustServiceStatus.GRANTED, Instant.parse("2026-01-01T00:00:00Z"), null);
     }
 
     @Test

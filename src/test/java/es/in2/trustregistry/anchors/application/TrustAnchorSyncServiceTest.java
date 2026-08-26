@@ -41,11 +41,11 @@ class TrustAnchorSyncServiceTest {
     }
 
     private static TrustAnchor anchor(String subject, TrustServiceStatus status) {
-        return new TrustAnchor(subject, "pem", "ES", "serviceType", status, EFFECTIVE);
+        return new TrustAnchor(subject, "pem", "ES", "serviceType", status, EFFECTIVE, null);
     }
 
     @Test
-    void synchronise_MixedStatuses_StoresOnlyGrantedAnchors() {
+    void synchronise_MixedStatuses_StoresEveryAnchorWithItsStatus() {
         // Arrange
         when(officialTrustList.fetchAnchors()).thenReturn(List.of(
                 anchor("CN=Granted", TrustServiceStatus.GRANTED),
@@ -55,12 +55,14 @@ class TrustAnchorSyncServiceTest {
         // Act
         int stored = service.synchronise();
 
-        // Assert
-        assertThat(stored).isEqualTo(1);
+        // Assert: nothing is dropped here. An anchor that is no longer granted still answers
+        // whether the service was qualified at the date of a past act, and filtering at this
+        // point would destroy that. Usability is resolved on query, not on synchronisation.
+        assertThat(stored).isEqualTo(3);
         verify(repository).replaceAll(storedAnchors.capture());
         assertThat(storedAnchors.getValue())
                 .extracting(TrustAnchor::subject)
-                .containsExactly("CN=Granted");
+                .containsExactly("CN=Granted", "CN=Withdrawn", "CN=Suspended");
     }
 
     @Test

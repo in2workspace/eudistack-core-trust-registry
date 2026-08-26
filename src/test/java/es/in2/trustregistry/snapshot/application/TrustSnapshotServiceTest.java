@@ -52,7 +52,7 @@ class TrustSnapshotServiceTest {
 
     private static TrustAnchor anchor() {
         return new TrustAnchor("CN=Test CA", "pem", "ES", "serviceType",
-                TrustServiceStatus.GRANTED, NOW.minusSeconds(86400));
+                TrustServiceStatus.GRANTED, NOW.minusSeconds(86400), null);
     }
 
     private static TrustedEntity entity() {

@@ -27,12 +27,13 @@ public class TrustAnchorSyncService {
     }
 
     public int synchronise() {
-        List<TrustAnchor> usable = officialTrustList.fetchAnchors().stream()
-                .filter(TrustAnchor::isUsable)
-                .toList();
-        repository.replaceAll(usable);
-        log.info("Trust anchor sync completed: {} usable anchor(s)", usable.size());
-        return usable.size();
+        // Deliberately unfiltered: an anchor whose status is no longer granted still
+        // answers whether the service was qualified at the date of a past act, and
+        // dropping it here would destroy that. Usability is resolved on query.
+        List<TrustAnchor> anchors = officialTrustList.fetchAnchors();
+        repository.replaceAll(anchors);
+        log.info("Trust anchor sync completed: {} anchor(s)", anchors.size());
+        return anchors.size();
     }
 
     public List<TrustAnchor> currentAnchors() {
