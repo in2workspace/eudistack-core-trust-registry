@@ -1,0 +1,46 @@
+name: push-to-main
+
+# Analyses main so SonarCloud has a baseline. Without it every pull request is
+# measured as if the whole codebase were new code, and the coverage condition of
+# the quality gate is evaluated against the entire repository instead of the diff.
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: main-analysis
+  cancel-in-progress: true
+
+jobs:
+  analyse:
+    name: Build & Analyse
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v7
+        with:
+          # Sonar needs the full history to attribute code to the right authors
+          # and to resolve the new-code period.
+          fetch-depth: 0
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@v5
+        with:
+          distribution: 'temurin'
+          java-version: '25'
+          cache: 'gradle'
+
+      - name: Make Gradlew Executable
+        run: chmod +x ./gradlew
+
+      - name: Build & Test
+        run: ./gradlew build
+
+      - name: SonarCloud Scan
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: ./gradlew sonar
