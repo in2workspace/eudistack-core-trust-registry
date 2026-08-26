@@ -63,6 +63,12 @@ jobs:
       - name: Build & Test
         run: ./gradlew build --info
 
+      # Builds and boots the image through Testcontainers. Kept out of `build`
+      # so the inner loop stays fast, but it must run somewhere or the container
+      # tests are decoration: this is that somewhere. Runners have Docker.
+      - name: Integration Tests (Testcontainers)
+        run: ./gradlew integrationTest --info
+
       - name: Publish JaCoCo Coverage
         if: always()
         uses: madrapps/jacoco-report@e51ce1f46f7f8b5331593f935e59cbaf44b84920 # v1.8.0
