@@ -34,6 +34,7 @@ class LoTEFixtureTest {
     private static final ObjectMapper MAPPER = new ObjectMapper();
     private static final String WALLET_LIST = "eudistack-wallet-providers-lote.json";
     private static final String RELYING_LIST = "eudistack-relying-parties-lote.json";
+    private static final String EAA_LIST = "eudistack-eaa-providers-lote.json";
 
     private static JsonNode fixture(String name) throws Exception {
         try (InputStream in = LoTEFixtureTest.class.getResourceAsStream("/fixtures/lote/" + name)) {
@@ -48,7 +49,7 @@ class LoTEFixtureTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {WALLET_LIST, RELYING_LIST})
+    @ValueSource(strings = {WALLET_LIST, RELYING_LIST, EAA_LIST})
     void fixture_AnyProvidedList_CarriesTheMandatorySchemeInformation(String name) throws Exception {
         // Act
         JsonNode scheme = fixture(name).path("LoTE").path("ListAndSchemeInformation");
@@ -62,7 +63,7 @@ class LoTEFixtureTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {WALLET_LIST, RELYING_LIST})
+    @ValueSource(strings = {WALLET_LIST, RELYING_LIST, EAA_LIST})
     void fixture_AnyProvidedList_OmitsServiceStatus(String name) throws Exception {
         // Act
         JsonNode service = firstService(fixture(name));
@@ -74,7 +75,7 @@ class LoTEFixtureTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {WALLET_LIST, RELYING_LIST})
+    @ValueSource(strings = {WALLET_LIST, RELYING_LIST, EAA_LIST})
     void fixture_AnyProvidedList_EmbedsAParsableCertificateCarryingTheOrganisationIdentifier(String name)
             throws Exception {
         // Arrange
