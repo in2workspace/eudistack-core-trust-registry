@@ -23,5 +23,5 @@ Read [docs/architecture.md](docs/architecture.md) before changing anything struc
 | Run locally | `docker compose up --build` |
 | Tests only | `./gradlew test` |
 
-Backlog epic: [EUD-34](https://eudistack.atlassian.net/browse/EUD-34). Specs and process live in
-`eudistack-platform-dev`.
+Backlog epic: `EUD-34`. The functional specification, the story breakdown and the delivery process
+live outside this repository, in the internal platform documentation.
