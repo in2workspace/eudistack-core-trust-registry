@@ -40,7 +40,10 @@ class TrustRegistryImageIT {
     @SuppressWarnings("resource")
     static final GenericContainer<?> REGISTRY = new GenericContainer<>(
             new ImageFromDockerfile()
-                    .withDockerfile(Path.of("Dockerfile"))
+                    // Absolute on purpose: Testcontainers derives the build context from the
+                    // parent of this path, and a bare relative "Dockerfile" has no parent, which
+                    // fails with a null base directory rather than a useful message.
+                    .withDockerfile(Path.of("Dockerfile").toAbsolutePath())
                     // The build job already ran the suite for the quality gate;
                     // re-running it inside the image would double the work.
                     .withBuildArg("SKIP_TESTS", "true"))
