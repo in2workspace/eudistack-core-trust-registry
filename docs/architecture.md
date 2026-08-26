@@ -72,7 +72,18 @@ centralised; **evaluation stays distributed**.
 | `AD-4` | The snapshot is signed and versioned, never served as plain JSON in production | A consumer must be able to trust an artefact it cached hours ago without calling back |
 | `AD-5` | Trust never crosses tenant boundaries; the private list is scoped per tenant | Same isolation invariant as the rest of the platform |
 | `AD-6` | Fail closed: an entity that cannot be resolved is not trusted | A trust registry that fails open is worse than no registry |
+| `AD-8` | Stay on the latest Spring Boot 3.x and avoid anything Boot 4 drops | The migration to Boot 4 is a real one — `spring-boot-starter-aop` is no longer managed and `@WebMvcTest` changes package — so the cheapest preparation is to run the newest 3.x and not depend on what disappears |
 | `AD-7` | Spring WebMvc on virtual threads, not WebFlux | The work is a periodic blocking synchronisation (DSS exposes a fully synchronous API) plus serving a cached snapshot. Reactor would wrap every DSS call in `boundedElastic` and buy nothing but harder stack traces. The Verifier already runs WebMvc |
+
+## 3.1 Validation strategy
+
+There is no deployed environment for this service yet, and there will not be one until the design settles, so correctness is established by tests rather than by a smoke test against staging:
+
+- **Unit tests** for the domain and the use cases, with no Spring context.
+- **Integration tests** (`TrustRegistryEndToEndTest`) that boot the whole application on a real port and go through HTTP. They assert the two properties everything else rests on: a consumer verifies a published snapshot with nothing but the JWKS, and trust never crosses a tenant boundary.
+- **Container tests** (`TrustRegistryImageIT`, Testcontainers, tag `container`) that build and boot the actual image, so the Dockerfile, the non-root user, the cache directory and the entrypoint are exercised too. They run under `./gradlew integrationTest`, not under `test`, because building the image takes minutes.
+
+As stories land, this is where their infrastructure gets covered: a container serving Trusted List fixtures for the LOTL synchronisation, and a PostgreSQL container once persistence replaces the in-memory adapters.
 
 ## 4. Out of scope
 
