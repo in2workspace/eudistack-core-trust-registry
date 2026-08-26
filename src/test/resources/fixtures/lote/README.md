@@ -65,6 +65,28 @@ identifiers, real certificates, a namespace we actually publish under, and a sig
 with real custody. Producing those from what the Verifier, the Issuer and the proximity validator
 hold today is the import story.
 
+## The list carries the CA, not the operational certificate
+
+HAIP is explicit on both paths that matter to us:
+
+- The SD-JWT VC **must** carry the issuer signing certificate and its chain in the `x5c` header
+  (§6.1.1), and **the trust anchor must not be in that `x5c`**, nor may the signing certificate be
+  self-signed.
+- Signed Credential Issuer Metadata, when the ecosystem requires it (§4.1), resolves its key the
+  same way — `x5c`, same restriction, and HAIP defines **no separate certificate profile** for
+  metadata versus credentials.
+
+So the anchor has to reach the verifier out of band, and that is what these lists are for. Each
+`ServiceDigitalIdentity` therefore holds the **CA**, matching what the EU model does for its own
+lists, and the operational certificates that chain to it live under `leaf/` so chain validation can
+be tested without regenerating a PKI. `LoTEFixtureTest` pins both halves: the listed certificate is
+a CA with `keyCertSign`, and each leaf verifies against it and is not self-signed.
+
+One consequence for the Issuer: its entry is not "the certificate that signs metadata". It is the
+anchor under which **all** its certificates chain — the one signing the SD-JWT VC on every
+credential, which is what the Verifier checks on every presentation, and the one signing metadata if
+we turn that on.
+
 ## Details worth not re-deriving
 
 - **`ServiceStatus` is absent on purpose.** In the EU profiles the set of allowed service statuses

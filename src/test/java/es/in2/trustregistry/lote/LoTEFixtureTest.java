@@ -14,6 +14,7 @@ import com.nimbusds.jose.jwk.ECKey;
 import com.nimbusds.jose.jwk.gen.ECKeyGenerator;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import java.io.ByteArrayInputStream;
@@ -74,22 +75,69 @@ class LoTEFixtureTest {
         assertThat(service.has("StatusStartingTime")).isFalse();
     }
 
+    private static X509Certificate certificateOf(JsonNode identity) throws Exception {
+        byte[] der = Base64.getDecoder().decode(identity.path("X509Certificates").get(0).path("val").asText());
+        return (X509Certificate) CertificateFactory.getInstance("X.509")
+                .generateCertificate(new ByteArrayInputStream(der));
+    }
+
+    private static X509Certificate leaf(String name) throws Exception {
+        try (InputStream in = LoTEFixtureTest.class.getResourceAsStream("/fixtures/lote/leaf/" + name)) {
+            assertThat(in).as("leaf %s must exist", name).isNotNull();
+            byte[] der = Base64.getDecoder().decode(new String(in.readAllBytes()).strip());
+            return (X509Certificate) CertificateFactory.getInstance("X.509")
+                    .generateCertificate(new ByteArrayInputStream(der));
+        }
+    }
+
     @ParameterizedTest
     @ValueSource(strings = {WALLET_LIST, RELYING_LIST, EAA_LIST})
-    void fixture_AnyProvidedList_EmbedsAParsableCertificateCarryingTheOrganisationIdentifier(String name)
-            throws Exception {
+    void fixture_AnyProvidedList_HoldsACertificateAuthorityAsTheTrustAnchor(String name) throws Exception {
+        // Act
+        X509Certificate anchor = certificateOf(firstService(fixture(name)).path("ServiceDigitalIdentity"));
+
+        // Assert: HAIP forbids the trust anchor from travelling inside the x5c of a signed
+        // credential or of signed metadata, so the list has to carry it out of band — and it has
+        // to be the CA, not the operational certificate. getBasicConstraints() >= 0 means CA.
+        assertThat(anchor.getBasicConstraints())
+                .as("the listed certificate must be a CA, not an end-entity certificate")
+                .isGreaterThanOrEqualTo(0);
+        assertThat(anchor.getKeyUsage()[5]).as("keyCertSign must be allowed").isTrue();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {WALLET_LIST, RELYING_LIST, EAA_LIST})
+    void fixture_AnyProvidedList_DeclaresTheSubjectOfTheCertificateItCarries(String name) throws Exception {
         // Arrange
         JsonNode identity = firstService(fixture(name)).path("ServiceDigitalIdentity");
-        byte[] der = Base64.getDecoder().decode(identity.path("X509Certificates").get(0).path("val").asText());
 
         // Act
-        X509Certificate certificate = (X509Certificate) CertificateFactory.getInstance("X.509")
-                .generateCertificate(new ByteArrayInputStream(der));
+        X509Certificate anchor = certificateOf(identity);
 
         // Assert: the declared subject and the embedded certificate must not drift apart, and both
         // must carry OID 2.5.4.97 — the key the registry resolves trust by.
-        assertThat(certificate.getSubjectX500Principal().getName()).contains("2.5.4.97");
+        assertThat(anchor.getSubjectX500Principal().getName()).contains("2.5.4.97");
         assertThat(identity.path("X509SubjectNames").get(0).asText()).contains("2.5.4.97");
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+            WALLET_LIST + ",wallet-provider.b64",
+            RELYING_LIST + ",relying-party.b64",
+            EAA_LIST + ",issuer.b64",
+    })
+    void operationalCertificate_OfAListedEntity_ChainsToTheAnchorInItsList(String list, String leafName)
+            throws Exception {
+        // Arrange
+        X509Certificate anchor = certificateOf(firstService(fixture(list)).path("ServiceDigitalIdentity"));
+        X509Certificate operational = leaf(leafName);
+
+        // Act & Assert: this is the whole point of listing the anchor. The operational certificate
+        // is what travels in the x5c; it must verify against the key the list published, and it
+        // must not be self-signed, which HAIP forbids.
+        operational.verify(anchor.getPublicKey());
+        assertThat(operational.getIssuerX500Principal()).isEqualTo(anchor.getSubjectX500Principal());
+        assertThat(operational.getSubjectX500Principal()).isNotEqualTo(operational.getIssuerX500Principal());
     }
 
     @Test
