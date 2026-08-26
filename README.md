@@ -74,7 +74,7 @@ Every call is tenant scoped through the `X-Tenant` header. OpenAPI lives at `/sw
 
 ## Running it
 
-The platform stack in `eudistack-platform-dev` is the normal way to run this service. Standalone,
+This service is normally brought up as part of the wider EUDIStack development stack. Standalone,
 while working on the registry itself:
 
 ```bash

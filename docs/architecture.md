@@ -1,6 +1,6 @@
 # Trust Registry — Architecture
 
-> Design record for `eudistack-core-trust-registry`. Backlog: [EUD-34](https://eudistack.atlassian.net/browse/EUD-34).
+> Design record for `eudistack-core-trust-registry`. Backlog epic: `EUD-34`.
 
 ## 1. Problem
 
