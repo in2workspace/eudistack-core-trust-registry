@@ -72,6 +72,7 @@ centralised; **evaluation stays distributed**.
 | `AD-4` | The snapshot is signed and versioned, never served as plain JSON in production | A consumer must be able to trust an artefact it cached hours ago without calling back |
 | `AD-5` | Trust never crosses tenant boundaries; the private list is scoped per tenant | Same isolation invariant as the rest of the platform |
 | `AD-6` | Fail closed: an entity that cannot be resolved is not trusted | A trust registry that fails open is worse than no registry |
+| `AD-9` | The private list arrives as external configuration, in the ETSI TS 119 602 data model, and the service exposes no write endpoint | A list of trusted entities is a publishable artefact, not a database: reads are open, and the ability to change trust is bounded by who can write the configuration. Same delivery path the Verifier already uses for its trusted issuers — object storage synced to a shared volume, reloaded on a schedule — so a change reaches consumers with no restart and no deploy. Adopting the standard model now means that replacing our file with an official European list later is a change of source, not of model |
 | `AD-8` | Stay on the latest Spring Boot 3.x and avoid anything Boot 4 drops | The migration to Boot 4 is a real one — `spring-boot-starter-aop` is no longer managed and `@WebMvcTest` changes package — so the cheapest preparation is to run the newest 3.x and not depend on what disappears |
 | `AD-7` | Spring WebMvc on virtual threads, not WebFlux | The work is a periodic blocking synchronisation (DSS exposes a fully synchronous API) plus serving a cached snapshot. Reactor would wrap every DSS call in `boundedElastic` and buy nothing but harder stack traces. The Verifier already runs WebMvc |
 
@@ -84,6 +85,14 @@ There is no deployed environment for this service yet, and there will not be one
 - **Container tests** (`TrustRegistryImageIT`, Testcontainers, tag `container`) that build and boot the actual image, so the Dockerfile, the non-root user, the cache directory and the entrypoint are exercised too. They run under `./gradlew integrationTest`, not under `test`, because building the image takes minutes.
 
 As stories land, this is where their infrastructure gets covered: a container serving Trusted List fixtures for the LOTL synchronisation, and a PostgreSQL container once persistence replaces the in-memory adapters.
+
+## 3.2 Where trust changes come from
+
+There is no administrative API. The private list of each tenant is provisioned as configuration and reloaded periodically; an invalid file leaves the previous version in force rather than emptying the list. Three consequences worth stating plainly:
+
+- **The write boundary is the configuration store**, not an endpoint. Whoever can write the file can change who the platform trusts. That is the control to protect.
+- **Reading is open by design.** Trusted lists are published documents; the tenant header selects which list to read and is not a confidentiality boundary. What must never cross a tenant boundary is the *decision*.
+- **The file is a list of trusted entities in the standard model**, so the day an official European list covers these roles, swapping ours for it is a change of source.
 
 ## 4. Out of scope
 
