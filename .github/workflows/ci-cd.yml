@@ -32,7 +32,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           # Sonar needs the full history to resolve the new-code period. Without
           # this, every pull request is measured as if the whole repository were
@@ -40,7 +40,7 @@ jobs:
           fetch-depth: 0
 
       - name: Set up JDK 25
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
         with:
           distribution: 'temurin'
           java-version: '25'
@@ -74,10 +74,10 @@ jobs:
       ENVIRONMENT: stg
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Set up JDK 25
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
         with:
           distribution: 'temurin'
           java-version: '25'
@@ -106,7 +106,7 @@ jobs:
           echo "Release ${TAG} does not exist — proceeding."
 
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@7474bc4690e29a8392af63c5b98e7449536d5c3a # v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID_STG }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY_STG }}
@@ -114,7 +114,7 @@ jobs:
 
       - name: Login to Amazon ECR
         id: ecr
-        uses: aws-actions/amazon-ecr-login@v2
+        uses: aws-actions/amazon-ecr-login@03f1aad4c6c7ffd436567f42f9384779290529bd # v2
 
       - name: Build & Push Docker Image
         env:
@@ -147,7 +147,7 @@ jobs:
       ENVIRONMENT: stg
     steps:
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@7474bc4690e29a8392af63c5b98e7449536d5c3a # v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID_STG }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY_STG }}
@@ -201,7 +201,7 @@ jobs:
       ENVIRONMENT: pro
     steps:
       - name: Configure AWS credentials (${{ env.FROM_ENV }})
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@7474bc4690e29a8392af63c5b98e7449536d5c3a # v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID_STG }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY_STG }}
@@ -209,7 +209,7 @@ jobs:
 
       - name: Login to Amazon ECR (${{ env.FROM_ENV }})
         id: ecr-stg
-        uses: aws-actions/amazon-ecr-login@v2
+        uses: aws-actions/amazon-ecr-login@03f1aad4c6c7ffd436567f42f9384779290529bd # v2
 
       - name: Pull image from ${{ env.FROM_ENV }} ECR
         env:
@@ -223,7 +223,7 @@ jobs:
           docker pull "${STG_IMAGE}"
 
       - name: Configure AWS credentials (Production)
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@7474bc4690e29a8392af63c5b98e7449536d5c3a # v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID_PRO }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY_PRO }}
@@ -231,7 +231,7 @@ jobs:
 
       - name: Login to Amazon ECR (Production)
         id: ecr-pro
-        uses: aws-actions/amazon-ecr-login@v2
+        uses: aws-actions/amazon-ecr-login@03f1aad4c6c7ffd436567f42f9384779290529bd # v2
 
       - name: Tag & Push to Production ECR
         env:
