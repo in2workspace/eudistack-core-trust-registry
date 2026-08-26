@@ -12,10 +12,12 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -87,5 +89,39 @@ class TrustedEntityServiceTest {
 
         // Assert
         assertThat(trusted).isFalse();
+    }
+
+    @Test
+    void register_NewEntity_DelegatesToTheRepository() {
+        // Arrange
+        TrustedEntity entity = new TrustedEntity(TENANT, ORG_ID, "Acme SL",
+                Set.of(EntityRole.RELYING_PARTY), "pem", NOW, null);
+        when(repository.save(entity)).thenReturn(entity);
+
+        // Act
+        TrustedEntity saved = service.register(entity);
+
+        // Assert
+        assertThat(saved).isEqualTo(entity);
+    }
+
+    @Test
+    void list_TenantWithEntities_ReturnsThem() {
+        // Arrange
+        TrustedEntity entity = new TrustedEntity(TENANT, ORG_ID, "Acme SL",
+                Set.of(EntityRole.RELYING_PARTY), "pem", NOW, null);
+        when(repository.findAllByTenant(TENANT)).thenReturn(List.of(entity));
+
+        // Act & Assert
+        assertThat(service.list(TENANT)).containsExactly(entity);
+    }
+
+    @Test
+    void revoke_ExistingEntity_DelegatesToTheRepository() {
+        // Act
+        service.revoke(TENANT, ORG_ID);
+
+        // Assert
+        verify(repository).delete(TENANT, ORG_ID);
     }
 }
