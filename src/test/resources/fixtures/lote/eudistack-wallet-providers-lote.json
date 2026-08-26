@@ -1,0 +1,134 @@
+{
+  "LoTE": {
+    "ListAndSchemeInformation": {
+      "LoTEVersionIdentifier": 1,
+      "LoTESequenceNumber": 1,
+      "LoTEType": "http://uri.eudistack.net/19602/LoTEType/WalletProvidersList",
+      "SchemeOperatorName": [
+        {
+          "lang": "en",
+          "value": "EUDIStack"
+        }
+      ],
+      "SchemeOperatorAddress": {
+        "SchemeOperatorPostalAddress": [
+          {
+            "StreetAddress": "Carrer de la Ciutat 1",
+            "Locality": "Barcelona",
+            "PostalCode": "08002",
+            "Country": "ES"
+          }
+        ],
+        "SchemeOperatorElectronicAddress": [
+          {
+            "lang": "en",
+            "uriValue": "mailto:trust@eudistack.net"
+          },
+          {
+            "lang": "en",
+            "uriValue": "https://eudistack.net"
+          }
+        ]
+      },
+      "SchemeName": [
+        {
+          "lang": "en",
+          "value": "EUDIStack sandbox — wallet providers"
+        }
+      ],
+      "SchemeInformationURI": [
+        {
+          "lang": "en",
+          "uriValue": "https://docs.eudistack.net/trust-framework"
+        }
+      ],
+      "StatusDeterminationApproach": "http://uri.eudistack.net/19602/WalletProvidersList/StatusDetn/EUDIStack",
+      "SchemeTypeCommunityRules": [
+        {
+          "lang": "en",
+          "uriValue": "http://uri.eudistack.net/19602/WalletProvidersList/schemerules/EUDIStack"
+        }
+      ],
+      "SchemeTerritory": "ES",
+      "ListIssueDateTime": "2026-08-26T00:00:00Z",
+      "NextUpdate": "2027-02-26T00:00:00Z",
+      "DistributionPoints": [
+        "https://trust.eudistack.net/lote/WalletProvidersList.jwt"
+      ]
+    },
+    "TrustedEntitiesList": [
+      {
+        "TrustedEntityInformation": {
+          "TEName": [
+            {
+              "lang": "en",
+              "value": "EUDIStack Wallet Provider"
+            }
+          ],
+          "TETradeName": [
+            {
+              "lang": "en",
+              "value": "VATES-B00000001"
+            }
+          ],
+          "TEAddress": {
+            "TEPostalAddress": [
+              {
+                "StreetAddress": "Carrer de la Ciutat 1",
+                "Locality": "Barcelona",
+                "PostalCode": "08002",
+                "Country": "ES"
+              }
+            ],
+            "TEElectronicAddress": [
+              {
+                "lang": "en",
+                "uriValue": "mailto:wallet@eudistack.net"
+              },
+              {
+                "lang": "en",
+                "uriValue": "https://eudistack.net"
+              }
+            ]
+          },
+          "TEInformationURI": [
+            {
+              "lang": "en",
+              "uriValue": "https://docs.eudistack.net/wallet"
+            }
+          ]
+        },
+        "TrustedEntityServices": [
+          {
+            "ServiceInformation": {
+              "ServiceName": [
+                {
+                  "lang": "en",
+                  "value": "Wallet solution issuance"
+                }
+              ],
+              "ServiceDigitalIdentity": {
+                "X509Certificates": [
+                  {
+                    "val": "MIIB7TCCAZKgAwIBAgIJAIXPA65wi+vwMAoGCCqGSM49BAMCMGoxCzAJBgNVBAYTAkVTMRgwFgYDVQRhEw9WQVRFUy1CMDAwMDAwMDExEjAQBgNVBAoTCUVVRElTdGFjazEtMCsGA1UEAxMkRVVESVN0YWNrIFNhbmRib3ggV2FsbGV0IFByb3ZpZGVyIENBMB4XDTI2MDgyNjE2MzUxN1oXDTM2MDgyMzE2MzUxN1owajELMAkGA1UEBhMCRVMxGDAWBgNVBGETD1ZBVEVTLUIwMDAwMDAwMTESMBAGA1UEChMJRVVESVN0YWNrMS0wKwYDVQQDEyRFVURJU3RhY2sgU2FuZGJveCBXYWxsZXQgUHJvdmlkZXIgQ0EwWTATBgcqhkjOPQIBBggqhkjOPQMBBwNCAATztjdNlH5oO1p1OK5l5j0XcP6E8hs9me9RRbuB42BZi3lYUqoNxY4/6MYDR91MDuZ1Etv6xdRA5j4ScD+4GkaXoyEwHzAdBgNVHQ4EFgQU3bTvR/NjBbd8ViGRpdiAqzIHzg0wCgYIKoZIzj0EAwIDSQAwRgIhAM5nxW9jmdxCGIvq1GwKsoJBBiAhDNio1hNJiIVFcfSWAiEAyXMxJOscwzAhblvjVXy70nT4l6MLFLZQk9g8akgzqac=",
+                    "encoding": "http://uri.etsi.org/19602/encoding/DER"
+                  }
+                ],
+                "X509SubjectNames": [
+                  "CN=EUDIStack Sandbox Wallet Provider CA,O=EUDIStack,OID.2.5.4.97=VATES-B00000001,C=ES"
+                ]
+              },
+              "ServiceTypeIdentifier": "http://uri.etsi.org/19602/SvcType/WalletSolution/Issuance",
+              "SchemeServiceDefinitionURI": [
+                {
+                  "lang": "en",
+                  "uriValue": "https://docs.eudistack.net/trust-framework/wallet-solution"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,134 @@
+{
+  "LoTE": {
+    "ListAndSchemeInformation": {
+      "LoTEVersionIdentifier": 1,
+      "LoTESequenceNumber": 1,
+      "LoTEType": "http://uri.eudistack.net/19602/LoTEType/RelyingPartiesList",
+      "SchemeOperatorName": [
+        {
+          "lang": "en",
+          "value": "EUDIStack"
+        }
+      ],
+      "SchemeOperatorAddress": {
+        "SchemeOperatorPostalAddress": [
+          {
+            "StreetAddress": "Carrer de la Ciutat 1",
+            "Locality": "Barcelona",
+            "PostalCode": "08002",
+            "Country": "ES"
+          }
+        ],
+        "SchemeOperatorElectronicAddress": [
+          {
+            "lang": "en",
+            "uriValue": "mailto:trust@eudistack.net"
+          },
+          {
+            "lang": "en",
+            "uriValue": "https://eudistack.net"
+          }
+        ]
+      },
+      "SchemeName": [
+        {
+          "lang": "en",
+          "value": "EUDIStack sandbox — relying parties"
+        }
+      ],
+      "SchemeInformationURI": [
+        {
+          "lang": "en",
+          "uriValue": "https://docs.eudistack.net/trust-framework"
+        }
+      ],
+      "StatusDeterminationApproach": "http://uri.eudistack.net/19602/RelyingPartiesList/StatusDetn/EUDIStack",
+      "SchemeTypeCommunityRules": [
+        {
+          "lang": "en",
+          "uriValue": "http://uri.eudistack.net/19602/RelyingPartiesList/schemerules/EUDIStack"
+        }
+      ],
+      "SchemeTerritory": "ES",
+      "ListIssueDateTime": "2026-08-26T00:00:00Z",
+      "NextUpdate": "2027-02-26T00:00:00Z",
+      "DistributionPoints": [
+        "https://trust.eudistack.net/lote/RelyingPartiesList.jwt"
+      ]
+    },
+    "TrustedEntitiesList": [
+      {
+        "TrustedEntityInformation": {
+          "TEName": [
+            {
+              "lang": "en",
+              "value": "Acme SL"
+            }
+          ],
+          "TETradeName": [
+            {
+              "lang": "en",
+              "value": "VATES-B12345678"
+            }
+          ],
+          "TEAddress": {
+            "TEPostalAddress": [
+              {
+                "StreetAddress": "Gran Via 100",
+                "Locality": "Madrid",
+                "PostalCode": "28013",
+                "Country": "ES"
+              }
+            ],
+            "TEElectronicAddress": [
+              {
+                "lang": "en",
+                "uriValue": "mailto:security@acme.example"
+              },
+              {
+                "lang": "en",
+                "uriValue": "https://acme.example"
+              }
+            ]
+          },
+          "TEInformationURI": [
+            {
+              "lang": "en",
+              "uriValue": "https://acme.example/about"
+            }
+          ]
+        },
+        "TrustedEntityServices": [
+          {
+            "ServiceInformation": {
+              "ServiceName": [
+                {
+                  "lang": "en",
+                  "value": "Acme verification service"
+                }
+              ],
+              "ServiceDigitalIdentity": {
+                "X509Certificates": [
+                  {
+                    "val": "MIIB0jCCAXegAwIBAgIIQnUqi3X1KLcwCgYIKoZIzj0EAwIwXTELMAkGA1UEBhMCRVMxGDAWBgNVBGETD1ZBVEVTLUIxMjM0NTY3ODEQMA4GA1UEChMHQWNtZSBTTDEiMCAGA1UEAxMZQWNtZSBWZXJpZmljYXRpb24gU2VydmljZTAeFw0yNjA4MjYxNjM1MTlaFw0zNjA4MjMxNjM1MTlaMF0xCzAJBgNVBAYTAkVTMRgwFgYDVQRhEw9WQVRFUy1CMTIzNDU2NzgxEDAOBgNVBAoTB0FjbWUgU0wxIjAgBgNVBAMTGUFjbWUgVmVyaWZpY2F0aW9uIFNlcnZpY2UwWTATBgcqhkjOPQIBBggqhkjOPQMBBwNCAAQwUjy5pDn1Ir0NIiztT2BZ1NA+oBNXW/3uWifndgp6dg2zWIAxmRNCMd4fFxcT1H5JyegJMrUOe5H0rpjBYNHSoyEwHzAdBgNVHQ4EFgQUJeMQ9r9HORp52FQzcPSJZTU8gIswCgYIKoZIzj0EAwIDSQAwRgIhAMclCah3dm1ET75ci5bmFuuat2y+q7KD+xJsF0JtDEOMAiEAoi6DBayPgIaS99nhOIOMQDbNNibIMipe/ieBJc6nIiA=",
+                    "encoding": "http://uri.etsi.org/19602/encoding/DER"
+                  }
+                ],
+                "X509SubjectNames": [
+                  "CN=Acme Verification Service,O=Acme SL,OID.2.5.4.97=VATES-B12345678,C=ES"
+                ]
+              },
+              "ServiceTypeIdentifier": "http://uri.eudistack.net/19602/SvcType/RelyingParty/Verification",
+              "SchemeServiceDefinitionURI": [
+                {
+                  "lang": "en",
+                  "uriValue": "https://docs.eudistack.net/trust-framework/relying-party"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    ]
+  }
+}
