@@ -5,7 +5,7 @@ plugins {
     id 'jacoco'
     id 'checkstyle'
     id 'org.sonarqube' version '7.2.2.6593'
-    id 'com.github.ben-manes.versions' version '0.53.0'
+    id 'com.github.ben-manes.versions' version '0.61.0'
     id 'se.patrikerdes.use-latest-versions' version '0.2.19'
 }
 
@@ -46,18 +46,18 @@ dependencies {
     // DSS is the European Commission reference implementation for LOTL/TL
     // handling: pivot chains, MRA, TL signature verification and offline cache.
     // Licence: LGPL-2.1 (linked, not modified) — see docs/architecture.md AD-2.
-    implementation 'eu.europa.ec.joinup.sd-dss:dss-tsl-validation:6.1.1'
-    implementation 'eu.europa.ec.joinup.sd-dss:dss-service:6.1.1'
-    implementation 'eu.europa.ec.joinup.sd-dss:dss-spi:6.1.1'
+    implementation 'eu.europa.ec.joinup.sd-dss:dss-tsl-validation:6.4'
+    implementation 'eu.europa.ec.joinup.sd-dss:dss-service:6.4'
+    implementation 'eu.europa.ec.joinup.sd-dss:dss-spi:6.4'
     // DSS delegates string/collection utilities and CRL parsing to a runtime
     // implementation module; without one it fails at startup, not at compile time.
-    runtimeOnly 'eu.europa.ec.joinup.sd-dss:dss-utils-apache-commons:6.1.1'
-    runtimeOnly 'eu.europa.ec.joinup.sd-dss:dss-crl-parser-x509crl:6.1.1'
+    runtimeOnly 'eu.europa.ec.joinup.sd-dss:dss-utils-apache-commons:6.4'
+    runtimeOnly 'eu.europa.ec.joinup.sd-dss:dss-crl-parser-x509crl:6.4'
 
     // --- Cryptography ---
-    implementation 'com.nimbusds:nimbus-jose-jwt:9.40'
-    implementation 'org.bouncycastle:bcprov-jdk18on:1.84'
-    implementation 'org.bouncycastle:bcpkix-jdk18on:1.84'
+    implementation 'com.nimbusds:nimbus-jose-jwt:10.9.1'
+    implementation 'org.bouncycastle:bcprov-jdk18on:1.85'
+    implementation 'org.bouncycastle:bcpkix-jdk18on:1.85'
 
     // --- Documentation ---
     implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.5.0'
@@ -70,7 +70,7 @@ dependencies {
     implementation 'io.micrometer:micrometer-tracing-bridge-otel'
     implementation 'io.opentelemetry:opentelemetry-exporter-otlp'
     runtimeOnly 'io.micrometer:micrometer-registry-prometheus'
-    implementation 'net.logstash.logback:logstash-logback-encoder:8.0'
+    implementation 'net.logstash.logback:logstash-logback-encoder:9.0'
 
     // --- DevTools ---
     compileOnly 'org.projectlombok:lombok'
@@ -78,7 +78,7 @@ dependencies {
 
     // --- Testing ---
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
-    testImplementation 'com.tngtech.archunit:archunit-junit5:1.4.1'
+    testImplementation 'com.tngtech.archunit:archunit-junit5:1.5.0'
 }
 
 configurations.configureEach {
