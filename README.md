@@ -5,9 +5,18 @@
 <p><p>
 
 [![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=in2workspace_eudistack-core-trust-registry&metric=alert_status)](https://sonarcloud.io/dashboard?id=in2workspace_eudistack-core-trust-registry)
-[![Coverage](https://sonarcloud.io/api/project_badges/measure?project=in2workspace_eudistack-core-trust-registry&metric=coverage)](https://sonarcloud.io/summary/new_code?id=in2workspace_eudistack-core-trust-registry)
+
+[![Bugs](https://sonarcloud.io/api/project_badges/measure?project=in2workspace_eudistack-core-trust-registry&metric=bugs)](https://sonarcloud.io/summary/new_code?id=in2workspace_eudistack-core-trust-registry)
+[![Vulnerabilities](https://sonarcloud.io/api/project_badges/measure?project=in2workspace_eudistack-core-trust-registry&metric=vulnerabilities)](https://sonarcloud.io/dashboard?id=in2workspace_eudistack-core-trust-registry)
 [![Security Rating](https://sonarcloud.io/api/project_badges/measure?project=in2workspace_eudistack-core-trust-registry&metric=security_rating)](https://sonarcloud.io/dashboard?id=in2workspace_eudistack-core-trust-registry)
-[![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
+[![Code Smells](https://sonarcloud.io/api/project_badges/measure?project=in2workspace_eudistack-core-trust-registry&metric=code_smells)](https://sonarcloud.io/summary/new_code?id=in2workspace_eudistack-core-trust-registry)
+[![Lines of Code](https://sonarcloud.io/api/project_badges/measure?project=in2workspace_eudistack-core-trust-registry&metric=ncloc)](https://sonarcloud.io/dashboard?id=in2workspace_eudistack-core-trust-registry)
+
+[![Coverage](https://sonarcloud.io/api/project_badges/measure?project=in2workspace_eudistack-core-trust-registry&metric=coverage)](https://sonarcloud.io/summary/new_code?id=in2workspace_eudistack-core-trust-registry)
+[![Duplicated Lines (%)](https://sonarcloud.io/api/project_badges/measure?project=in2workspace_eudistack-core-trust-registry&metric=duplicated_lines_density)](https://sonarcloud.io/summary/new_code?id=in2workspace_eudistack-core-trust-registry)
+[![Reliability Rating](https://sonarcloud.io/api/project_badges/measure?project=in2workspace_eudistack-core-trust-registry&metric=reliability_rating)](https://sonarcloud.io/dashboard?id=in2workspace_eudistack-core-trust-registry)
+[![Maintainability Rating](https://sonarcloud.io/api/project_badges/measure?project=in2workspace_eudistack-core-trust-registry&metric=sqale_rating)](https://sonarcloud.io/dashboard?id=in2workspace_eudistack-core-trust-registry)
+[![Technical Debt](https://sonarcloud.io/api/project_badges/measure?project=in2workspace_eudistack-core-trust-registry&metric=sqale_index)](https://sonarcloud.io/summary/new_code?id=in2workspace_eudistack-core-trust-registry)
 
 </div>
 
