@@ -124,6 +124,14 @@ checkstyleTest {
 
 // --- Tasks ---
 
+// Spring Boot builds both the executable jar and a "-plain" one. The image copies
+// build/libs/*.jar, so leaving both makes that COPY ambiguous and the image build
+// fails with "when using COPY with more than one source file...". Nothing consumes
+// the plain jar, so it is switched off rather than worked around in the Dockerfile.
+tasks.named('jar') {
+    enabled = false
+}
+
 tasks.named('test') {
     useJUnitPlatform {
         // Container tests build and boot the Docker image, which takes minutes.
