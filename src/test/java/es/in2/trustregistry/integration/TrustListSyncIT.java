@@ -19,6 +19,7 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
 import java.util.stream.StreamSupport;
 
@@ -201,6 +202,74 @@ class TrustListSyncIT {
                 String metrics = prometheusMetrics(registry);
                 assertThat(metrics).contains("reason=\"SIGNATURE_INVALID\"");
                 assertThat(metrics).contains("reason=\"UNREACHABLE\"");
+            } finally {
+                registry.stop();
+                fixturesServer.stop();
+            }
+        }
+    }
+
+    /**
+     * <b>NFR-P-227-01</b> requires a complete synchronisation of the LOTL and its national lists
+     * to finish in under 10 minutes, measured against the real EU trust framework (~27 national
+     * lists, real network latency, real DSS caching/parallelism). This test does <b>not</b>
+     * attempt to prove that threshold: it cannot. Timing a 4-pointer fixture set served by a
+     * loopback {@code nginx} container has no defensible scaling relationship to 27 real national
+     * infrastructures — DSS's per-list cost is dominated by fixed overhead (LOTL parsing,
+     * keystore loading, signature verification against a local test certificate) that does not
+     * scale linearly with list count, and local container latency is not representative of real
+     * network round-trips. Any arithmetic projection from this fixture set to the 10-minute
+     * production window (e.g. "4/27 of 10 minutes") would be fabricated precision.
+     *
+     * <p>What this test <i>does</i> assert is a fixture-scale <b>regression guard</b>: a complete
+     * synchronisation against {@code lotl-valid-mixed.xml} (BB valid, ZZ tampered, CC three
+     * statuses, plus an unreachable pointer — the same fixture set as
+     * {@link #synchronise_OneNationalListTamperedAmongOthers_DiscardsOnlyThatListAndKeepsGoingEc01})
+     * finishes within a generous bound, well above what the existing sibling scenarios already
+     * demonstrate is normal (their {@code atMost(Duration.ofSeconds(30))} polling ceiling).
+     * "Complete" here means every one of the four pointers has a final, recorded outcome — not
+     * merely that the reachable anchors appear — so a regression that silently drops or hangs on
+     * one pointer while still serving the others would not slip through. A regression that made
+     * synchronisation newly blocking (e.g. a synchronous retry loop against the unreachable host,
+     * a widened or removed timeout, or DSS validation no longer running in parallel per list)
+     * would very plausibly push this fixture-scale sync from a few seconds to tens of seconds or
+     * more, and this bound would catch it — that is the entire and only claim this test makes
+     * about NFR-P-227-01. Per {@code technical-design.md} &sect;3.7.2's own risk mitigation,
+     * fixture measurement is a first step, not a substitute for production-scale validation.
+     */
+    @Test
+    void synchronise_MixedLotlAgainstFixtures_CompletesWellWithinAFixtureScaleRegressionBoundNfrP01() {
+        // Given a LOTL pointing at the same mixed set used by the EC-01 scenario: one valid
+        // national list (BB), one tampered (ZZ), one with three statuses (CC), and one
+        // unreachable pointer
+        try (Network network = Network.newNetwork()) {
+            GenericContainer<?> fixturesServer = startFixturesServer(network);
+
+            // When the registry starts and runs its first synchronisation, timed from the
+            // moment the container reports ready (readiness already passed by the time
+            // startRegistry returns) until every pointer has a final, recorded outcome
+            Instant syncStart = Instant.now();
+            GenericContainer<?> registry = startRegistry(
+                    network, "http://" + FIXTURES_ALIAS + "/lotl-valid-mixed.xml", newCacheDir());
+            try {
+                await().atMost(Duration.ofSeconds(60))
+                        .untilAsserted(() -> {
+                            assertThat(territoriesOf(plainSnapshot(registry)))
+                                    .containsExactlyInAnyOrder("BB", "CC");
+                            String metrics = prometheusMetrics(registry);
+                            assertThat(metrics).contains("reason=\"SIGNATURE_INVALID\"");
+                            assertThat(metrics).contains("reason=\"UNREACHABLE\"");
+                        });
+                Duration syncDuration = Duration.between(syncStart, Instant.now());
+
+                // Then the complete synchronisation (all four pointers dispositioned) finishes
+                // within the fixture-scale regression bound described in the Javadoc above — a
+                // smoke check on the sync mechanism itself, not a scaled proof of the
+                // production 10-minute/~27-list threshold
+                assertThat(syncDuration)
+                        .as("fixture-scale synchronisation duration (regression guard for "
+                                + "NFR-P-227-01, not a proof of the production threshold)")
+                        .isLessThan(Duration.ofSeconds(60));
             } finally {
                 registry.stop();
                 fixturesServer.stop();
