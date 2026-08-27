@@ -34,6 +34,16 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `oj-keystore.p12`. Includes `regenerate-fixtures.sh`, which compiles and runs a small
   `XAdESService`-based signing tool against the project's own DSS dependencies, and verifies
   every fixture with DSS's own `TLValidatorTask` immediately after generation.
+- `TrustListSyncIT` (EUD-227, task 15): a container test running the real packaged image
+  against a second container serving the fixtures above over HTTP, on a shared Testcontainers
+  network with the `tsl-fixtures` alias the fixtures' signed XML already points at. Covers a
+  full sync against a valid LOTL (`AC-01`); a LOTL mixing a valid list, a tampered list and a
+  three-statuses list plus an unreachable pointer, verifying only the tampered/unreachable
+  ones are rejected while the rest process normally (`AC-02`, `AC-03`, `EC-01`); a restart
+  serving anchors from a cache populated by a prior successful sync with no source reachable
+  (`AC-05`); and a cold start with no cache and no network (`EC-04`). Adds
+  `lotl-valid-mixed.xml` and `keystore/official-test-truststore.p12` on top of task 13's
+  fixture set — see `fixtures/tsl/README.md` for why.
 
 ### Changed
 
@@ -65,3 +75,17 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `onlineRefresh()` or `offlineRefresh()`, both used by `DssOfficialTrustListAdapter` — would
   have thrown `NoClassDefFoundError` the first time it ran, undetected until now because DSS
   is mocked in the existing unit tests.
+- `TrustAnchorSyncService.applyOutcome(SyncOutcome)` (EUD-227, `EC-04`) no longer stamps a
+  successful-sync instant when a refresh gathers no anchors and has at least one rejection: a
+  repository that has never completed a real synchronisation now genuinely stays
+  `TrustAnchorSet.neverSynced()`, instead of being marked dated-and-empty by its very first,
+  fully-failed attempt. An already-synced repository is likewise left untouched — not re-dated
+  or wiped — by a subsequent attempt where every list fails.
+- `specs-trusted-list-v211`, `dss-validation` and `dss-policy-jaxb` moved to
+  `implementation`/`runtimeOnly` (EUD-227): they were declared test-only under the incorrect
+  assumption that only fixture-verification tooling needed them, but `TLValidationJob` runs
+  `TLValidatorTask` internally on every real refresh to verify each TL/LOTL's signature.
+  Without `dss-validation`, DSS silently caught the resulting `NoClassDefFoundError` per list
+  and accepted its content anyway with zero rejection recorded — unverified list content
+  reaching the served anchor set (`NFR-S-227-01`). Found and reproduced against the real
+  packaged image while building task 15's container test.
