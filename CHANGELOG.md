@@ -11,6 +11,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Initial scaffolding: hexagonal package layout, trust snapshot API, private trusted
   entity API, in-memory adapters, DSS dependency set and CI pipeline.
 - `docs/architecture.md` with the two-layer design and the accepted decisions.
+- `DssOfficialTrustListAdapter` implementation (EUD-227): triggers `TLValidationJob.onlineRefresh()`
+  and maps its `TLValidationJobSummary` to `TrustAnchor`s without filtering by service status
+  (`AC-03`), preserving each service's status window for evaluation at query time (`AD-4`).
+  Each list (LOTL or national) is processed independently; an unreachable or signature-invalid
+  list becomes a `ListRejection` without aborting the run for the others (`AC-02`, `EC-01`,
+  `ES-02`).
 
 ### Changed
 
