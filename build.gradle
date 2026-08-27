@@ -69,6 +69,14 @@ dependencies {
     implementation 'eu.europa.ec.joinup.sd-dss:dss-tsl-validation:6.4'
     implementation 'eu.europa.ec.joinup.sd-dss:dss-service:6.4'
     implementation 'eu.europa.ec.joinup.sd-dss:dss-spi:6.4'
+    // dss-tsl-validation's AbstractParsingTask.verifyTLVersionConformity() (LOTL parsing only)
+    // needs specs-trusted-list-v211's JAXB-generated classes at runtime. It was never on the
+    // production runtimeClasspath, so every unit test that mocks
+    // TLValidationJob/TLValidationJobSummary never exercised this code path. Found while
+    // building task 15's container test (tasks.md task 15 Notes): any real onlineRefresh()
+    // against a genuine LOTL threw NoClassDefFoundError the first time it ran for real, the same
+    // category of gap as the commons-lang3 fix in task 13.
+    runtimeOnly 'eu.europa.ec.joinup.sd-dss:specs-trusted-list-v211:6.4'
     // dss-xades is already pulled in transitively by dss-tsl-validation (TL/LOTL
     // signature verification is XAdES-BES); declared directly here too because
     // fixtures/tsl/regenerate-fixtures.sh compiles a throwaway signing utility
@@ -77,14 +85,20 @@ dependencies {
     // dss-token (PKCS12 keystore-backed signing) is not pulled in by any other
     // declared dependency — only the fixture-signing tool above needs it.
     testImplementation 'eu.europa.ec.joinup.sd-dss:dss-token:6.4'
-    // dss-validation carries SignedDocumentValidator, which TLValidatorTask needs
-    // at runtime to check a TL/LOTL's signature; only used by the fixture smoke
-    // check (VerifyTslFixtures), not by production code, which never validates a
-    // raw TL/LOTL document directly — it reads TLValidationJob's own summary.
-    testImplementation 'eu.europa.ec.joinup.sd-dss:dss-validation:6.4'
-    // dss-policy-jaxb provides the default constraint-policy loader TLValidatorTask
-    // needs at runtime; same test-only scope as dss-validation above.
-    testRuntimeOnly 'eu.europa.ec.joinup.sd-dss:dss-policy-jaxb:6.4'
+    // dss-validation carries SignedDocumentValidator. It is NOT test-only: TLValidatorTask,
+    // which TLValidationJob itself runs internally to verify every TL/LOTL's signature, needs
+    // it at runtime — confirmed while building task 15's container test, where a real
+    // onlineRefresh() without this dependency swallowed a NoClassDefFoundError per list inside
+    // DSS's own AbstractRunnableAnalysis and accepted the list's content anyway, with zero
+    // rejection recorded: unverified content reaching the served set, exactly what
+    // NFR-S-227-01 exists to prevent. The original comment here ("only used by the fixture
+    // smoke check") was wrong — DssOfficialTrustListAdapter never calls TLValidatorTask
+    // directly, but TLValidationJob does, on every real refresh.
+    implementation 'eu.europa.ec.joinup.sd-dss:dss-validation:6.4'
+    // dss-policy-jaxb provides the default constraint-policy loader TLValidatorTask needs at
+    // runtime; same production scope as dss-validation just above, for the same reason
+    // (TLValidationJob runs TLValidatorTask internally on every real refresh).
+    runtimeOnly 'eu.europa.ec.joinup.sd-dss:dss-policy-jaxb:6.4'
     // DSS delegates string/collection utilities and CRL parsing to a runtime
     // implementation module; without one it fails at startup, not at compile time.
     runtimeOnly 'eu.europa.ec.joinup.sd-dss:dss-utils-apache-commons:6.4'
