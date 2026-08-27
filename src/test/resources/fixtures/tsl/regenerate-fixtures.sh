@@ -44,4 +44,20 @@ java -cp "$BUILD_DIR:$CLASSPATH" GenerateTslFixtures
 echo "Verifying every fixture's signature with DSS's own TLValidatorTask..."
 java -cp "$BUILD_DIR:$CLASSPATH" VerifyTslFixtures
 
+echo "Rebuilding the official-test-truststore.p12 (task 15) from tsl-test-signing-ca.cer..."
+# This is DssTrustListJobConfig's officialSigningCertificateSource() trust store for the
+# container test (task 15): a PKCS12 file containing the fixtures' CA certificate as a
+# trusted entry, password "dss-password" to match DssTrustListJobConfig's hardcoded
+# LOTL_KEYSTORE_PASSWORD. Unrelated to tsl-test-signing-keystore.p12 above (that one signs
+# fixture content; this one lets DSS's production config class verify it) and to
+# src/test/resources/dss-config/ (that one exercises DssTrustListJobConfigTest's ES-01
+# fail-fast path, unrelated certs). See fixtures/tsl/README.md for the full rationale.
+rm -f "$FIXTURES_DIR/keystore/official-test-truststore.p12"
+keytool -importcert -noprompt \
+    -alias tsl-test-ca \
+    -file "$FIXTURES_DIR/keystore/tsl-test-signing-ca.cer" \
+    -keystore "$FIXTURES_DIR/keystore/official-test-truststore.p12" \
+    -storetype PKCS12 \
+    -storepass dss-password
+
 echo "Done. Signed fixtures are in $FIXTURES_DIR/*.xml"

@@ -56,9 +56,15 @@ public final class GenerateTslFixtures {
     private static final Instant PAST_NEXT_UPDATE = Instant.parse("2020-01-01T00:00:00Z");
     private static final Instant STATUS_STARTING_TIME = Instant.parse("2025-01-01T00:00:00Z");
 
-    // Fixed URLs the container test (task 15) will bind the fixtures to.
+    // Fixed URLs the container test (task 15) binds the fixtures to: the "tsl-fixtures"
+    // network alias is a real nginx container serving this directory; "tsl-fixtures-unreachable"
+    // is deliberately never registered as an alias on any container, so DSS gets a clean,
+    // deterministic DNS failure for it (EC-01) instead of a stopped-container timing race.
     private static final String TL_A_URL = "http://tsl-fixtures/tl-national-a-valid.xml";
     private static final String TL_B_URL = "http://tsl-fixtures/tl-national-b-valid.xml";
+    private static final String TL_TAMPERED_URL = "http://tsl-fixtures/tl-national-tampered.xml";
+    private static final String TL_THREE_STATUSES_URL = "http://tsl-fixtures/tl-national-three-statuses.xml";
+    private static final String TL_UNREACHABLE_URL = "http://tsl-fixtures-unreachable/tl-does-not-exist.xml";
 
     private final Pkcs12SignatureToken signingToken;
     private final DSSPrivateKeyEntry caKey;
@@ -164,6 +170,22 @@ public final class GenerateTslFixtures {
                 "{{NEXT_UPDATE}}", FUTURE_NEXT_UPDATE.toString(),
                 "{{TL_NATIONAL_A_URL}}", TL_A_URL,
                 "{{TL_NATIONAL_B_URL}}", TL_B_URL,
+                "{{TEST_CA_CERTIFICATE_BASE64}}", caCertificateBase64
+        ));
+
+        // Task 15 addendum (not a task 13 fixture): a LOTL whose own signature is fine but
+        // whose pointers mix a valid list (BB), a tampered list (ZZ) and a three-statuses
+        // list (CC), plus one unreachable pointer — the only way to exercise AC-02
+        // ("one national list tampered, the others are fine") and EC-01 end to end, since
+        // lotl-valid.xml only ever points at the two plain-valid lists. See
+        // fixtures/tsl/README.md and tasks.md task 13 Notes addendum for the full rationale.
+        signAndWrite("lotl-valid-mixed.xml", Map.of(
+                "{{ISSUE_DATE}}", ISSUE_DATE.toString(),
+                "{{NEXT_UPDATE}}", FUTURE_NEXT_UPDATE.toString(),
+                "{{TL_NATIONAL_B_URL}}", TL_B_URL,
+                "{{TL_NATIONAL_TAMPERED_URL}}", TL_TAMPERED_URL,
+                "{{TL_NATIONAL_THREE_STATUSES_URL}}", TL_THREE_STATUSES_URL,
+                "{{TL_NATIONAL_UNREACHABLE_URL}}", TL_UNREACHABLE_URL,
                 "{{TEST_CA_CERTIFICATE_BASE64}}", caCertificateBase64
         ));
     }
