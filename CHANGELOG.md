@@ -24,6 +24,16 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `trust_registry.anchor_set.age_seconds` / `trust_registry.anchor_set.never_synced` (gauges read
   live from the served anchor set), so operations can detect a failed or stale synchronisation
   before a consumer does.
+- `src/test/resources/fixtures/tsl/` (EUD-227, task 13): a curated set of signed TSL/LOTL
+  fixtures for the upcoming container test (task 15) — a valid LOTL and two valid national
+  TLs (`AC-01`), a tampered national TL and a tampered LOTL (`AC-02`, `ES-02`), one national
+  TL with three services in `granted`/`withdrawn`/`supervisionrevoked` statuses (`AC-03`;
+  see `README.md` for why `supervisionrevoked` replaces the literal "suspended" ask — no such
+  ETSI status URI exists), and a LOTL plus a national TL with a past `NextUpdate` (`EC-02`).
+  Signed with a throwaway test PKI (`keystore/tsl-test-signing-keystore.p12`), never the real
+  `oj-keystore.p12`. Includes `regenerate-fixtures.sh`, which compiles and runs a small
+  `XAdESService`-based signing tool against the project's own DSS dependencies, and verifies
+  every fixture with DSS's own `TLValidatorTask` immediately after generation.
 
 ### Changed
 
@@ -49,3 +59,9 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   refresh run right after boot now applies its `SyncOutcome` to the repository via
   `TrustAnchorSyncService.applyOutcome(SyncOutcome)`, the same atomic-replace step the scheduled
   online refresh uses, instead of only logging the outcome.
+- `commons-lang3` now resolves to `3.20.0` instead of Spring Boot's managed `3.17.0` (EUD-227,
+  task 13): `dss-utils-apache-commons:6.4` requires `>= 3.18` at runtime
+  (`org.apache.commons.lang3.Strings.CS`/`CI`), so any real `TLValidationJob` refresh —
+  `onlineRefresh()` or `offlineRefresh()`, both used by `DssOfficialTrustListAdapter` — would
+  have thrown `NoClassDefFoundError` the first time it ran, undetected until now because DSS
+  is mocked in the existing unit tests.
