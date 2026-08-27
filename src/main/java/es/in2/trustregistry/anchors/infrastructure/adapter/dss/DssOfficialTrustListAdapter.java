@@ -14,6 +14,7 @@ import eu.europa.esig.dss.model.tsl.TLValidationJobSummary;
 import eu.europa.esig.dss.model.tsl.TrustService;
 import eu.europa.esig.dss.model.tsl.TrustServiceProvider;
 import eu.europa.esig.dss.model.tsl.TrustServiceStatusAndInformationExtensions;
+import eu.europa.esig.dss.model.tsl.ValidationInfoRecord;
 import eu.europa.esig.dss.model.x509.CertificateToken;
 import eu.europa.esig.dss.spi.DSSUtils;
 import eu.europa.esig.dss.tsl.job.TLValidationJob;
@@ -118,9 +119,9 @@ public class DssOfficialTrustListAdapter implements OfficialTrustListPort {
             log.warn("LOTL '{}' is unreachable; keeping the last known good content (EC-01)", listIdentifier);
             return;
         }
-        if (lotlInfo.getValidationCacheInfo().isInvalid()) {
+        if (!lotlInfo.getValidationCacheInfo().isValid()) {
             rejections.add(new ListRejection(listIdentifier, RejectionReason.SIGNATURE_INVALID,
-                    "LOTL signature does not verify against the official signing certificates"));
+                    signatureRejectionDetail("LOTL", lotlInfo.getValidationCacheInfo())));
             log.warn("LOTL '{}' failed signature verification; no national list derived from it "
                     + "this run (ES-02)", listIdentifier);
             return;
@@ -146,9 +147,9 @@ public class DssOfficialTrustListAdapter implements OfficialTrustListPort {
                     listIdentifier);
             return;
         }
-        if (tlInfo.getValidationCacheInfo().isInvalid()) {
+        if (!tlInfo.getValidationCacheInfo().isValid()) {
             rejections.add(new ListRejection(listIdentifier, RejectionReason.SIGNATURE_INVALID,
-                    "Trusted list signature does not verify against the official signing certificates"));
+                    signatureRejectionDetail("Trusted list", tlInfo.getValidationCacheInfo())));
             log.warn("Trusted list '{}' failed signature verification; discarding its content "
                     + "for this run (AC-02)", listIdentifier);
             return;
@@ -230,5 +231,21 @@ public class DssOfficialTrustListAdapter implements OfficialTrustListPort {
                     listIdentifier, nextUpdateDate.toInstant());
         }
         return stale;
+    }
+
+    /**
+     * The gate above rejects on anything short of {@code Indication.TOTAL_PASSED}, which covers
+     * two distinct causes DSS itself already tells apart: a signature that was cryptographically
+     * broken after signing ({@code TOTAL_FAILED}, a hash mismatch) and one that is well-formed but
+     * does not chain to a certificate in the official signing-cert store
+     * ({@code INDETERMINATE}/{@code NO_CERTIFICATE_CHAIN_FOUND}, an untrusted signer). Both are
+     * reported as {@link RejectionReason#SIGNATURE_INVALID} — "does not verify" already covers
+     * both per that reason's own Javadoc — but the underlying DSS indication is preserved in the
+     * detail so operators can tell them apart without introducing a second reason value.
+     */
+    private String signatureRejectionDetail(String listKind, ValidationInfoRecord validationInfo) {
+        return ("%s signature does not verify against the official signing certificates "
+                + "(indication=%s, subIndication=%s)").formatted(
+                        listKind, validationInfo.getIndication(), validationInfo.getSubIndication());
     }
 }
