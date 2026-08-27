@@ -18,6 +18,7 @@ import eu.europa.esig.dss.model.x509.CertificateToken;
 import eu.europa.esig.dss.model.x509.X500PrincipalHelper;
 import eu.europa.esig.dss.spi.DSSUtils;
 import eu.europa.esig.dss.tsl.job.TLValidationJob;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -47,10 +48,11 @@ class DssOfficialTrustListAdapterTest {
     @Mock
     private TLValidationJobSummary summary;
 
-    private final DssOfficialTrustListAdapter adapter = adapter();
+    private DssOfficialTrustListAdapter adapter;
 
-    private DssOfficialTrustListAdapter adapter() {
-        return new DssOfficialTrustListAdapter(trustListValidationJob);
+    @BeforeEach
+    void setUp() {
+        adapter = new DssOfficialTrustListAdapter(trustListValidationJob);
     }
 
     @Test
@@ -177,6 +179,61 @@ class DssOfficialTrustListAdapterTest {
     }
 
     @Test
+    void fetchAnchorsFromCache_ValidCachedLists_UsesOfflineRefreshInsteadOfOnline() {
+        // Arrange: AC-05/EC-04 — the startup path must populate from the on-disk cache only,
+        // never touching the network.
+        LOTLInfo lotlInfo = validLotlInfo("https://ec.europa.eu/lotl");
+        TLInfo tlInfo = validTlInfo("https://tl.es/tl.xml");
+        validParsingInfo(tlInfo, "ES", List.of(provider(
+                "ES",
+                trustService(GRANTED_STATUS, Instant.parse("2026-01-01T00:00:00Z"), null))));
+        when(lotlInfo.getTLInfos()).thenReturn(List.of(tlInfo));
+        when(summary.getLOTLInfos()).thenReturn(List.of(lotlInfo));
+        when(summary.getOtherTLInfos()).thenReturn(List.of());
+        when(trustListValidationJob.getSummary()).thenReturn(summary);
+
+        try (MockedStatic<DSSUtils> dssUtils = mockStatic(DSSUtils.class)) {
+            dssUtils.when(() -> DSSUtils.convertToPEM(any())).thenReturn("pem");
+
+            // Act
+            SyncOutcome outcome = adapter.fetchAnchorsFromCache();
+
+            // Assert
+            verify(trustListValidationJob).offlineRefresh();
+            verify(trustListValidationJob, org.mockito.Mockito.never()).onlineRefresh();
+            assertThat(outcome.anchors()).hasSize(1);
+            assertThat(outcome.rejections()).isEmpty();
+        }
+    }
+
+    @Test
+    void fetchAnchorsFromCache_NoCacheEntryForList_ReportsUnreachableAndReturnsEmptyAnchors() {
+        // Arrange: EC-04 — no prior cache and no network must resolve to an empty, non-
+        // exceptional outcome, exactly like an unreachable source (EC-01), not an error.
+        LOTLInfo lotlInfo = validLotlInfo("https://ec.europa.eu/lotl");
+
+        TLInfo neverCachedTl = mockTlInfo("https://tl.es/tl.xml");
+        DownloadInfoRecord neverCachedDownload = mockDownloadInfo(true, "no cached entry available");
+        when(neverCachedTl.getDownloadCacheInfo()).thenReturn(neverCachedDownload);
+
+        when(lotlInfo.getTLInfos()).thenReturn(List.of(neverCachedTl));
+        when(summary.getLOTLInfos()).thenReturn(List.of(lotlInfo));
+        when(summary.getOtherTLInfos()).thenReturn(List.of());
+        when(trustListValidationJob.getSummary()).thenReturn(summary);
+
+        // Act
+        SyncOutcome outcome = adapter.fetchAnchorsFromCache();
+
+        // Assert
+        verify(trustListValidationJob).offlineRefresh();
+        assertThat(outcome.anchors()).isEmpty();
+        assertThat(outcome.rejections())
+                .extracting(r -> r.listIdentifier(), r -> r.reason())
+                .containsExactly(org.assertj.core.groups.Tuple.tuple(
+                        "https://tl.es/tl.xml", RejectionReason.UNREACHABLE));
+    }
+
+    @Test
     void fetchAnchors_WithdrawnService_KeepsAnchorInsteadOfFiltering() {
         // Arrange: AD-4/AC-03 — synchronisation never filters by status.
         LOTLInfo lotlInfo = validLotlInfo("https://ec.europa.eu/lotl");
@@ -208,15 +265,22 @@ class DssOfficialTrustListAdapterTest {
 
     private LOTLInfo validLotlInfo(String url) {
         LOTLInfo info = mockLotlInfo(url);
-        when(info.getDownloadCacheInfo()).thenReturn(mockDownloadInfo(false, null));
-        when(info.getValidationCacheInfo()).thenReturn(mockValidationInfo(false));
+        DownloadInfoRecord download = mockDownloadInfo(false, null);
+        ValidationInfoRecord validation = mockValidationInfo(false);
+        when(info.getDownloadCacheInfo()).thenReturn(download);
+        when(info.getValidationCacheInfo()).thenReturn(validation);
+        ParsingInfoRecord parsingInfo = org.mockito.Mockito.mock(ParsingInfoRecord.class);
+        when(parsingInfo.getNextUpdateDate()).thenReturn(Date.from(Instant.now().plusSeconds(86_400)));
+        when(info.getParsingCacheInfo()).thenReturn(parsingInfo);
         return info;
     }
 
     private TLInfo validTlInfo(String url) {
         TLInfo info = mockTlInfo(url);
-        when(info.getDownloadCacheInfo()).thenReturn(mockDownloadInfo(false, null));
-        when(info.getValidationCacheInfo()).thenReturn(mockValidationInfo(false));
+        DownloadInfoRecord download = mockDownloadInfo(false, null);
+        ValidationInfoRecord validation = mockValidationInfo(false);
+        when(info.getDownloadCacheInfo()).thenReturn(download);
+        when(info.getValidationCacheInfo()).thenReturn(validation);
         return info;
     }
 
