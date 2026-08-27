@@ -77,6 +77,11 @@ centralised; **evaluation stays distributed**.
 | `AD-9` | The private list arrives as external configuration, in the ETSI TS 119 602 data model, and the service exposes no write endpoint | A list of trusted entities is a publishable artefact, not a database: reads are open, and the ability to change trust is bounded by who can write the configuration. Same delivery path the Verifier already uses for its trusted issuers — object storage synced to a shared volume, reloaded on a schedule — so a change reaches consumers with no restart and no deploy. Adopting the standard model now means that replacing our file with an official European list later is a change of source, not of model |
 | `AD-8` | Stay on the latest Spring Boot 3.x and avoid anything Boot 4 drops | The migration to Boot 4 is a real one — `spring-boot-starter-aop` is no longer managed and `@WebMvcTest` changes package — so the cheapest preparation is to run the newest 3.x and not depend on what disappears |
 | `AD-7` | Spring WebMvc on virtual threads, not WebFlux | The work is a periodic blocking synchronisation (DSS exposes a fully synchronous API) plus serving a cached snapshot. Reactor would wrap every DSS call in `boundedElastic` and buy nothing but harder stack traces. The Verifier already runs WebMvc |
+| `AD-12` | Vendor DSS's own reference OJ keystore (`dss-cookbook` `oj_2019/ec.europa.eu.1-8.cer`) instead of an unofficial third-party source | `AD-2` already delegates the full list lifecycle to DSS; diverging the trust anchor from the one DSS tests against would leave our anchor untested by DSS's own suite. Accepted consequence: most of the bundled certificates are already expired — see §3.3 |
+| `AD-13` | The synchronised anchor set is never filtered by status; `TrustAnchor` keeps every status period and utilisability is resolved against the instant of the check | Filtering at sync time would destroy the information a later "was this qualified when it signed" check needs. `TrustAnchor.isUsable()` takes the instant as an argument instead of reading the clock |
+| `AD-14` | An anchor set that fails to synchronise, entirely, keeps its previous instant and anchors instead of stamping a new "synced" instant on an empty result | A wholly failed attempt (no anchors, at least one rejection) is not a successful empty sync; conflating the two broke the never-synced/synced-and-stale distinction the set exists to preserve (`EC-04`) |
+| `AD-15` | The official signing-certificate keystore is loaded and parsed while the `@Configuration` bean is constructed, not lazily on first sync | A service that starts without being able to verify anything would silently serve unverifiable trust; failing at startup surfaces the problem immediately instead of on the next scheduled sync (`ES-01`) |
+| `AD-16` | `DssOfficialTrustListAdapter` reads `TLValidationJob.getSummary()` (per-list download/parsing/validation info), never `TrustedListsCertificateSource` | The certificate source exists only so DSS keeps itself internally in sync; the per-list summary is the only place that carries the download/signature outcome `SyncOutcome` needs to report rejections |
 
 ## 3.1 Validation strategy
 
@@ -88,6 +93,8 @@ There is no deployed environment for this service yet, and there will not be one
 
 As stories land, this is where their infrastructure gets covered: a container serving Trusted List fixtures for the LOTL synchronisation, and a PostgreSQL container once persistence replaces the in-memory adapters.
 
+`EUD-227` added the first of those: `TrustListSyncIT` (`integrationTest`, tag `container`) boots the packaged image against a second `nginx:alpine` container serving signed TSL/LOTL fixtures over a shared Docker network (the fixtures' cross-references are hostnames baked into already-signed XML, so they only resolve between containers, never from a host JVM). It is also what caught the two real DSS wiring defects below — both invisible to unit tests, which mock `TLValidationJob` rather than exercising the real pipeline.
+
 ## 3.2 Where trust changes come from
 
 There is no administrative API. The private list of each tenant is provisioned as configuration and reloaded periodically; an invalid file leaves the previous version in force rather than emptying the list. Three consequences worth stating plainly:
@@ -95,6 +102,21 @@ There is no administrative API. The private list of each tenant is provisioned a
 - **The write boundary is the configuration store**, not an endpoint. Whoever can write the file can change who the platform trusts. That is the control to protect.
 - **Reading is open by design.** Trusted lists are published documents; the tenant header selects which list to read and is not a confidentiality boundary. What must never cross a tenant boundary is the *decision*.
 - **The file is a list of trusted entities in the standard model**, so the day an official European list covers these roles, swapping ours for it is a change of source.
+
+## 3.3 Known risks from official-anchor synchronisation (`EUD-227`)
+
+These are documented deliberately rather than smoothed over — a reader of this document should be able to reconstruct the actual risk surface, not a sanitised summary.
+
+**OJ keystore staleness (DSS upstream, unresolved).** `AD-12`'s vendored keystore (`classpath:keystore/oj-keystore.p12`, password `dss-password`) ships eight certificates; **seven are already expired**, confirmed with `openssl x509 -dates`. Only one remains valid, through 2028. This is an upstream staleness issue in DSS's `dss-cookbook` module, not something introduced or patchable in this repository — replacing it with a hand-picked, currently-valid OJ certificate set was considered and rejected (`AD-12`: it would untether the anchor from what DSS's own test suite exercises). An attempt was made to report this against `github.com/esig/dss`; that repository has GitHub Issues disabled and redirects to the European Commission's own JIRA (`ec.europa.eu/digital-building-blocks/tracker/projects/DSS/issues`), which requires an EC-affiliated account — **reporting it upstream is still pending**. Not a blocker today: signature verification only needs the certificate that actually signed the LOTL currently in force, selected via DSS's pivot mechanism, but the risk should be re-checked whenever the OJ rotates a signing certificate.
+
+**Two real DSS wiring defects found by the container test, not by any unit test.** Both existed in code already marked `completed` before the container test (`TrustListSyncIT`) first exercised a real `TLValidationJob.onlineRefresh()` against packaged, real fixtures — every unit test up to that point mocked `TLValidationJob` directly, so neither was reachable from the unit suite:
+
+- *Missing `specs-trusted-list-v211` on the runtime classpath.* LOTL parsing (`AbstractParsingTask.verifyTLVersionConformity()`) needs this artifact; it only reached `testRuntimeClasspath` transitively via a test-only DSS dependency. Any real `onlineRefresh()`/`offlineRefresh()` would have failed with `NoClassDefFoundError` the first time it ran outside a test. Fixed by declaring it `runtimeOnly` in `build.gradle`.
+- *Missing `dss-validation`/`dss-policy-jaxb` on the runtime classpath — security-relevant.* `TLValidationJob` internally uses `TLValidatorTask` (from `dss-validation`) to verify each list's signature. With that dependency `testImplementation`-only, the same `NoClassDefFoundError` was caught **internally by DSS** and logged as a non-fatal `WARN` ("Error performing analysis") — and the affected list was accepted anyway, with **zero rejections recorded**, i.e. unverified content would have reached the served anchor set. This directly contradicts `NFR-S-227-01`. Reproduced against the real packaged image before fixing, not inferred from a stack trace. Fixed by moving `dss-validation` and `dss-policy-jaxb` to `implementation`/`runtimeOnly`; the tampered-list rejection scenario was re-verified manually against the image afterwards.
+
+Also found and fixed during the same work: a Spring dependency-management BOM (`springdoc-openapi-starter-webmvc-ui` → `swagger-core-jakarta`) pins `commons-lang3` to `3.17.0`, below the `3.18+` that `dss-utils-apache-commons` requires (`Strings.CS`/`Strings.CI`). A normal `resolutionStrategy.force` does not win against a Spring BOM pin; `dependencyManagement { dependencies { dependency '...:commons-lang3:3.20.0' } }` does. This one was also unreachable from any test that mocks `TLValidationJob`/`TLValidationJobSummary`.
+
+**`TrustServiceStatus.SUSPENDED` is a domain value with no real-world path.** ETSI TS 119 612 defines no "suspended" status URI in either its pre- or post-eIDAS status vocabulary (confirmed against DSS 6.4's own `TrustServiceStatus` enum). The domain model keeps `SUSPENDED` as a valid enum value (in case a future normative revision introduces one, or a non-DSS source is added later), but no real DSS synchronisation can ever produce it — any status URI other than `granted`/`withdrawn` maps to `WITHDRAWN` or `UNKNOWN`, never to `SUSPENDED`. Test fixtures use the real, DSS-recognised `supervisionrevoked` status as the closest honest analogue to "a service in a state other than granted or withdrawn," rather than inventing a URI DSS would not recognise.
 
 ## 4. Out of scope
 
@@ -118,10 +140,12 @@ the use cases, `infrastructure/` the adapters. The dependency rule is enforced b
 
 ## 6. Roadmap
 
-The current tree is scaffolding: the DSS synchronisation adapter is a stub, persistence is
-in memory and the signing key is ephemeral. In order:
+Persistence is in memory and the signing key is ephemeral; both are still scaffolding. The
+official-anchor side is no longer a stub. In order:
 
-1. `US-01` — DSS synchronisation of LOTL and national Trusted Lists, with offline cache.
+1. ~~`US-01` — DSS synchronisation of LOTL and national Trusted Lists, with offline cache.~~
+   Done (`EUD-227`): see §3.1 and §3.3 for the container test that validates it and the
+   risks it surfaced.
 2. `US-02` — Snapshot persistence and production key custody (KMS), published JWKS.
 3. `US-03` — Private list persisted per tenant, with admin API and audit trail.
 4. `US-04` to `US-06` — JVM client module, then migration of Verifier, Issuer and proximity
