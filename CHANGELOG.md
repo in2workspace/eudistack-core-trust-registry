@@ -28,3 +28,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   mid-run never reaches the replacement, so the previous set survives untouched (`ES-03`).
   `synchronise()` now returns the `SyncOutcome` itself instead of an anchor count, so callers
   learn about per-list rejections, not just anchors kept.
+
+### Fixed
+
+- Startup no longer leaves the served anchor set unpopulated (EUD-227, `AC-05`): the cache-only
+  refresh run right after boot now applies its `SyncOutcome` to the repository via
+  `TrustAnchorSyncService.applyOutcome(SyncOutcome)`, the same atomic-replace step the scheduled
+  online refresh uses, instead of only logging the outcome.
