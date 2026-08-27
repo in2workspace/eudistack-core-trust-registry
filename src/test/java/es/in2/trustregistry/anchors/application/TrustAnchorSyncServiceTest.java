@@ -186,6 +186,67 @@ class TrustAnchorSyncServiceTest {
     }
 
     @Test
+    void applyOutcome_FirstEverAttemptWithNoAnchorsAndRejections_LeavesTheRepositoryNeverSynced() {
+        // Arrange: EC-04 fix — every attempted list failed (no source reachable/verified, no
+        // cache to fall back on) on a repository that has never completed a successful sync.
+        // This must NOT fabricate a first successful-sync instant from nothing.
+        ListRejection rejection = new ListRejection("https://tsl-fixtures/lotl.xml",
+                RejectionReason.UNREACHABLE, "no cached entry available");
+        SyncOutcome outcome = new SyncOutcome(List.of(), List.of(rejection));
+
+        // Act
+        service.applyOutcome(outcome);
+
+        // Assert
+        verify(repository, never()).replaceAll(ArgumentMatchers.any());
+    }
+
+    @Test
+    void applyOutcome_FirstEverAttemptWithNoAnchorsAndNoRejections_StoresASyncedEmptySet() {
+        // Arrange: a genuinely empty but successful outcome (every attempted list verified and
+        // legitimately lists nothing) is a real, dated result (TrustAnchorSet's own
+        // never-synced-vs-synced-empty distinction) — it must still stamp a fresh instant,
+        // exactly as synchronise_SourceReturnsNothing_StoresASyncedEmptySetNotANeverSyncedOne
+        // already proves through synchronise(); this proves the same through applyOutcome().
+        SyncOutcome outcome = new SyncOutcome(List.of(), List.of());
+
+        // Act
+        service.applyOutcome(outcome);
+
+        // Assert
+        verify(repository).replaceAll(storedAnchorSet.capture());
+        TrustAnchorSet stored = storedAnchorSet.getValue();
+        assertThat(stored.anchors()).isEmpty();
+        assertThat(stored.isNeverSynced()).isFalse();
+        assertThat(stored.lastSuccessfulSyncAt()).isEqualTo(SYNC_INSTANT);
+    }
+
+    @Test
+    void applyOutcome_AlreadySyncedRepositoryReceivesAFullyFailedAttempt_KeepsTheOldAnchorsAndInstant() {
+        // Arrange: EC-04 fix's other half — a repository that was already successfully synced
+        // must not be wiped or re-dated by a subsequent attempt where every list failed; the
+        // previous, genuinely successful sync stays in force untouched (AD-3's "serve stale
+        // rather than empty", extended to "a failed refresh is not applied at all").
+        InMemoryTrustAnchorRepository realRepository = new InMemoryTrustAnchorRepository();
+        Clock clock = Clock.fixed(SYNC_INSTANT, ZoneOffset.UTC);
+        TrustAnchorSyncService serviceWithRealRepository =
+                new TrustAnchorSyncService(officialTrustList, realRepository, clock);
+        TrustAnchor previouslyServed = anchor("CN=PreviouslyServed", TrustServiceStatus.GRANTED);
+        serviceWithRealRepository.applyOutcome(new SyncOutcome(List.of(previouslyServed), List.of()));
+        TrustAnchorSet beforeFailedAttempt = realRepository.current();
+
+        // Act: every list fails on the next attempt.
+        ListRejection rejection = new ListRejection("https://tsl-fixtures/lotl.xml",
+                RejectionReason.UNREACHABLE, "unreachable");
+        serviceWithRealRepository.applyOutcome(new SyncOutcome(List.of(), List.of(rejection)));
+
+        // Assert: the served set is exactly what it was before the failed attempt.
+        assertThat(realRepository.current()).isEqualTo(beforeFailedAttempt);
+        assertThat(realRepository.current().anchors()).containsExactly(previouslyServed);
+        assertThat(realRepository.current().lastSuccessfulSyncAt()).isEqualTo(SYNC_INSTANT);
+    }
+
+    @Test
     void applyOutcome_PreFetchedOutcome_ReplacesTheServedSetAtomicallyWithTheSyncInstant() {
         // Arrange: AC-05 — the startup cache-only refresh (TrustAnchorSyncScheduler) fetches its
         // own SyncOutcome via the adapter directly, then hands it here so the served repository
