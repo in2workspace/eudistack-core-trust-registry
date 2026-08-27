@@ -15,6 +15,8 @@ import java.time.Instant;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThatCode;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -51,33 +53,38 @@ class TrustAnchorSyncSchedulerTest {
     }
 
     @Test
-    void refreshFromCacheOnStartup_CacheFetchSucceeds_DelegatesToTheAdapter() {
-        // Arrange: AC-05 — startup populates from cache via the adapter directly.
+    void refreshFromCacheOnStartup_CacheFetchSucceeds_AppliesTheOutcomeToTheServedAnchorSet() {
+        // Arrange: AC-05/AC-07 — startup must genuinely populate the served repository from
+        // cache, not just fetch and log it.
         TrustAnchorSyncScheduler scheduler = new TrustAnchorSyncScheduler(syncService, officialTrustListAdapter);
         TrustAnchor anchor = new TrustAnchor("CN=Test CA", "pem", "ES",
                 "http://uri.etsi.org/TrstSvc/Svctype/CA/QC", TrustServiceStatus.GRANTED,
                 Instant.parse("2026-01-01T00:00:00Z"), null);
-        when(officialTrustListAdapter.fetchAnchorsFromCache())
-                .thenReturn(new SyncOutcome(List.of(anchor), List.of()));
+        SyncOutcome outcome = new SyncOutcome(List.of(anchor), List.of());
+        when(officialTrustListAdapter.fetchAnchorsFromCache()).thenReturn(outcome);
 
         // Act
         scheduler.refreshFromCacheOnStartup();
 
         // Assert
         verify(officialTrustListAdapter).fetchAnchorsFromCache();
+        verify(syncService).applyOutcome(outcome);
     }
 
     @Test
-    void refreshFromCacheOnStartup_NoCacheAndNoNetwork_SwallowsEmptyOutcomeWithoutThrowing() {
-        // Arrange: EC-04 — an empty, all-rejected outcome is a normal result, not an error.
+    void refreshFromCacheOnStartup_NoCacheAndNoNetwork_AppliesTheEmptyOutcomeWithoutThrowing() {
+        // Arrange: EC-04 — an empty, all-rejected outcome is a normal result, not an error, and
+        // still gets applied so the served set is marked synced-but-empty, not never-synced.
         TrustAnchorSyncScheduler scheduler = new TrustAnchorSyncScheduler(syncService, officialTrustListAdapter);
-        when(officialTrustListAdapter.fetchAnchorsFromCache()).thenReturn(new SyncOutcome(List.of(),
+        SyncOutcome outcome = new SyncOutcome(List.of(),
                 List.of(new ListRejection("https://ec.europa.eu/lotl", RejectionReason.UNREACHABLE,
-                        "no cached entry available"))));
+                        "no cached entry available")));
+        when(officialTrustListAdapter.fetchAnchorsFromCache()).thenReturn(outcome);
 
         // Act & Assert
         assertThatCode(scheduler::refreshFromCacheOnStartup).doesNotThrowAnyException();
         verify(officialTrustListAdapter).fetchAnchorsFromCache();
+        verify(syncService).applyOutcome(outcome);
     }
 
     @Test
@@ -89,5 +96,6 @@ class TrustAnchorSyncSchedulerTest {
 
         // Act & Assert
         assertThatCode(scheduler::refreshFromCacheOnStartup).doesNotThrowAnyException();
+        verify(syncService, never()).applyOutcome(any());
     }
 }
