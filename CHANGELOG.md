@@ -44,6 +44,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   (`AC-05`); and a cold start with no cache and no network (`EC-04`). Adds
   `lotl-valid-mixed.xml` and `keystore/official-test-truststore.p12` on top of task 13's
   fixture set — see `fixtures/tsl/README.md` for why.
+- `TrustListSyncIT` (EUD-227, task 16, `NFR-P-227-01`): a timed scenario reusing the same
+  mixed fixture set as task 15's `AC-02`/`EC-01` scenario, asserting a complete synchronisation
+  (all four pointers dispositioned, not just anchors present) finishes within 60s. This is a
+  fixture-scale regression guard, not a scaled proof of the production threshold (<10 min
+  against ~27 real national lists) — proportional scaling from a 4-pointer local-fixture set
+  to real EU infrastructure has no defensible basis.
 
 ### Changed
 
