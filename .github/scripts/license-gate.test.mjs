@@ -25,7 +25,7 @@ import {
   loadSbom,
   loadExceptions,
   runLicenseGate
-} from '../license-gate.mjs';
+} from './license-gate.mjs';
 
 const ALLOWED = ['Apache-2.0', 'MIT', 'BSD-2-Clause', 'BSD-3-Clause', 'MPL-2.0', 'EPL-2.0', 'CC0-1.0', 'MIT-0', '0BSD', 'ISC', 'LicenseRef-PublicDomain'];
 
