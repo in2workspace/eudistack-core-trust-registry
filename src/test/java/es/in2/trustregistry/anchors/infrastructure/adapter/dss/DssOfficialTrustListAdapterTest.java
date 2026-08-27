@@ -12,6 +12,6 @@ class DssOfficialTrustListAdapterTest {
         DssOfficialTrustListAdapter adapter = new DssOfficialTrustListAdapter();
 
         // Act & Assert: the stub must fail closed (no anchors), never grant trust it cannot prove.
-        assertThat(adapter.fetchAnchors()).isEmpty();
+        assertThat(adapter.fetchAnchors().anchors()).isEmpty();
     }
 }
