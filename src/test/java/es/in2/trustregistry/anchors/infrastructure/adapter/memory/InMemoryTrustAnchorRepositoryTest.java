@@ -1,11 +1,11 @@
 package es.in2.trustregistry.anchors.infrastructure.adapter.memory;
 
 import es.in2.trustregistry.anchors.domain.model.TrustAnchor;
+import es.in2.trustregistry.anchors.domain.model.TrustAnchorSet;
 import es.in2.trustregistry.anchors.domain.model.TrustServiceStatus;
 import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -20,36 +20,28 @@ class InMemoryTrustAnchorRepositoryTest {
     }
 
     @Test
-    void findAll_NothingStoredYet_ReturnsEmpty() {
+    void current_NothingStoredYet_IsNeverSynced() {
         // Act
-        List<TrustAnchor> anchors = repository.findAll();
+        TrustAnchorSet current = repository.current();
 
         // Assert
-        assertThat(anchors).isEmpty();
+        assertThat(current.isNeverSynced()).isTrue();
+        assertThat(current.anchors()).isEmpty();
     }
 
     @Test
     void replaceAll_CalledTwice_KeepsOnlyTheLastSet() {
         // Arrange
-        repository.replaceAll(List.of(anchor("CN=First")));
+        Instant firstSync = Instant.parse("2026-01-01T00:00:00Z");
+        Instant secondSync = Instant.parse("2026-01-02T00:00:00Z");
+        repository.replaceAll(new TrustAnchorSet(List.of(anchor("CN=First")), firstSync));
 
         // Act
-        repository.replaceAll(List.of(anchor("CN=Second")));
+        repository.replaceAll(new TrustAnchorSet(List.of(anchor("CN=Second")), secondSync));
 
         // Assert
-        assertThat(repository.findAll()).extracting(TrustAnchor::subject).containsExactly("CN=Second");
-    }
-
-    @Test
-    void replaceAll_CallerMutatesTheSourceList_StoredSetIsUnaffected() {
-        // Arrange
-        List<TrustAnchor> mutable = new ArrayList<>(List.of(anchor("CN=First")));
-        repository.replaceAll(mutable);
-
-        // Act
-        mutable.clear();
-
-        // Assert
-        assertThat(repository.findAll()).hasSize(1);
+        TrustAnchorSet current = repository.current();
+        assertThat(current.anchors()).extracting(TrustAnchor::subject).containsExactly("CN=Second");
+        assertThat(current.lastSuccessfulSyncAt()).isEqualTo(secondSync);
     }
 }

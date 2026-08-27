@@ -1,10 +1,9 @@
 package es.in2.trustregistry.anchors.infrastructure.adapter.memory;
 
-import es.in2.trustregistry.anchors.domain.model.TrustAnchor;
+import es.in2.trustregistry.anchors.domain.model.TrustAnchorSet;
 import es.in2.trustregistry.anchors.domain.port.TrustAnchorRepositoryPort;
 import org.springframework.stereotype.Repository;
 
-import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
@@ -14,15 +13,16 @@ import java.util.concurrent.atomic.AtomicReference;
 @Repository
 public class InMemoryTrustAnchorRepository implements TrustAnchorRepositoryPort {
 
-    private final AtomicReference<List<TrustAnchor>> anchors = new AtomicReference<>(List.of());
+    private final AtomicReference<TrustAnchorSet> anchorSet =
+            new AtomicReference<>(TrustAnchorSet.neverSynced());
 
     @Override
-    public void replaceAll(List<TrustAnchor> newAnchors) {
-        anchors.set(List.copyOf(newAnchors));
+    public void replaceAll(TrustAnchorSet newAnchorSet) {
+        anchorSet.set(newAnchorSet);
     }
 
     @Override
-    public List<TrustAnchor> findAll() {
-        return anchors.get();
+    public TrustAnchorSet current() {
+        return anchorSet.get();
     }
 }
