@@ -12,7 +12,7 @@ plugins {
 group = 'com.eudistack'
 // Plain version, no SNAPSHOT: the ci job tags the release v${version}
 // and refuses to run if that tag already exists.
-version = '0.1.0'
+version = '0.2.0'
 
 java {
     toolchain {
@@ -27,6 +27,24 @@ jacoco {
 configurations {
     compileOnly {
         extendsFrom annotationProcessor
+    }
+}
+
+// Spring Boot's dependency-management BOM pins commons-lang3 to 3.17.0 (via
+// springdoc -> swagger-core-jakarta), overriding the 3.20.0 that
+// dss-utils-apache-commons:6.4 (task 6/7/8) actually requires at runtime
+// (org.apache.commons.lang3.Strings.CS/CI, added in 3.18). Left unpinned, any real
+// TLValidationJob refresh — onlineRefresh() or offlineRefresh(), both exercised by
+// DssOfficialTrustListAdapter — throws NoClassDefFoundError the first time DSS's
+// TLValidationJobSummaryBuilder calls Utils.areStringsEqual(), which no unit test
+// exercises because DSS itself is mocked there (task 8/9 notes). Found while
+// building task 13's fixture-signing tool, which hits the same code path; fixed
+// here rather than only worked around locally, since the defect is in production
+// wiring, not test tooling. A plain resolutionStrategy.force does not win against
+// Spring's dependency-management BOM, hence the explicit override below.
+dependencyManagement {
+    dependencies {
+        dependency 'org.apache.commons:commons-lang3:3.20.0'
     }
 }
 
@@ -51,6 +69,36 @@ dependencies {
     implementation 'eu.europa.ec.joinup.sd-dss:dss-tsl-validation:6.4'
     implementation 'eu.europa.ec.joinup.sd-dss:dss-service:6.4'
     implementation 'eu.europa.ec.joinup.sd-dss:dss-spi:6.4'
+    // dss-tsl-validation's AbstractParsingTask.verifyTLVersionConformity() (LOTL parsing only)
+    // needs specs-trusted-list-v211's JAXB-generated classes at runtime. It was never on the
+    // production runtimeClasspath, so every unit test that mocks
+    // TLValidationJob/TLValidationJobSummary never exercised this code path. Found while
+    // building task 15's container test (tasks.md task 15 Notes): any real onlineRefresh()
+    // against a genuine LOTL threw NoClassDefFoundError the first time it ran for real, the same
+    // category of gap as the commons-lang3 fix in task 13.
+    runtimeOnly 'eu.europa.ec.joinup.sd-dss:specs-trusted-list-v211:6.4'
+    // dss-xades is already pulled in transitively by dss-tsl-validation (TL/LOTL
+    // signature verification is XAdES-BES); declared directly here too because
+    // fixtures/tsl/regenerate-fixtures.sh compiles a throwaway signing utility
+    // against XAdESService to produce real, DSS-verifiable test fixtures.
+    testImplementation 'eu.europa.ec.joinup.sd-dss:dss-xades:6.4'
+    // dss-token (PKCS12 keystore-backed signing) is not pulled in by any other
+    // declared dependency — only the fixture-signing tool above needs it.
+    testImplementation 'eu.europa.ec.joinup.sd-dss:dss-token:6.4'
+    // dss-validation carries SignedDocumentValidator. It is NOT test-only: TLValidatorTask,
+    // which TLValidationJob itself runs internally to verify every TL/LOTL's signature, needs
+    // it at runtime — confirmed while building task 15's container test, where a real
+    // onlineRefresh() without this dependency swallowed a NoClassDefFoundError per list inside
+    // DSS's own AbstractRunnableAnalysis and accepted the list's content anyway, with zero
+    // rejection recorded: unverified content reaching the served set, exactly what
+    // NFR-S-227-01 exists to prevent. The original comment here ("only used by the fixture
+    // smoke check") was wrong — DssOfficialTrustListAdapter never calls TLValidatorTask
+    // directly, but TLValidationJob does, on every real refresh.
+    implementation 'eu.europa.ec.joinup.sd-dss:dss-validation:6.4'
+    // dss-policy-jaxb provides the default constraint-policy loader TLValidatorTask needs at
+    // runtime; same production scope as dss-validation just above, for the same reason
+    // (TLValidationJob runs TLValidatorTask internally on every real refresh).
+    runtimeOnly 'eu.europa.ec.joinup.sd-dss:dss-policy-jaxb:6.4'
     // DSS delegates string/collection utilities and CRL parsing to a runtime
     // implementation module; without one it fails at startup, not at compile time.
     runtimeOnly 'eu.europa.ec.joinup.sd-dss:dss-utils-apache-commons:6.4'
@@ -139,6 +187,11 @@ tasks.named('test') {
         // through the `integrationTest` task below.
         excludeTags 'container'
     }
+    // Mockito's inline mock maker (needed to mock concrete classes such as DSS's
+    // TLValidationJob) self-attaches a Java agent at runtime. JDK 25 disallows that
+    // by default and fails silently — mocked fields come back null instead of an
+    // exception — unless the running JVM opts back in explicitly.
+    jvmArgs('-XX:+EnableDynamicAgentLoading')
     finalizedBy(tasks.jacocoTestReport)
 }
 
