@@ -34,6 +34,7 @@ public final class VerifyTslFixtures {
     private static final List<String> EXPECTED_VALID = List.of(
             "lotl-valid.xml",
             "lotl-stale-next-update.xml",
+            "lotl-valid-mixed.xml",
             "tl-national-a-valid.xml",
             "tl-national-b-valid.xml",
             "tl-national-stale-next-update.xml",
