@@ -41,6 +41,31 @@ class TrustAnchorTest {
     }
 
     @Test
+    void isUsableAt_ActExactlyWhenTheStatusStarted_ReturnsTrue() {
+        // Arrange: the starting instant itself is part of the window (inclusive boundary).
+        TrustAnchor granted = anchor(TrustServiceStatus.GRANTED, GRANTED_FROM, null);
+
+        // Act
+        boolean usable = granted.isUsableAt(GRANTED_FROM);
+
+        // Assert
+        assertThat(usable).isTrue();
+    }
+
+    @Test
+    void isUsableAt_ActImmediatelyBeforeTheGrantEnded_ReturnsTrue() {
+        // Arrange: the ending instant itself is excluded from the window, but the instant
+        // right before it is still within it.
+        TrustAnchor expired = anchor(TrustServiceStatus.GRANTED, GRANTED_FROM, WITHDRAWN_FROM);
+
+        // Act
+        boolean usable = expired.isUsableAt(WITHDRAWN_FROM.minusSeconds(1));
+
+        // Assert
+        assertThat(usable).isTrue();
+    }
+
+    @Test
     void isUsableAt_ActWhileTheGrantWasStillInForce_ReturnsTrue() {
         // Arrange: the grant ended in June, but the act happened in March.
         TrustAnchor expired = anchor(TrustServiceStatus.GRANTED, GRANTED_FROM, WITHDRAWN_FROM);
