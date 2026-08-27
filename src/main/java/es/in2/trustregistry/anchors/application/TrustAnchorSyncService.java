@@ -94,4 +94,16 @@ public class TrustAnchorSyncService {
     public List<TrustAnchor> currentAnchors() {
         return repository.current().anchors();
     }
+
+    /**
+     * The anchor set currently in force, in full — including {@link TrustAnchorSet#isNeverSynced()}
+     * and its last successful synchronisation instant, both discarded by {@link #currentAnchors()}.
+     *
+     * <p>Additive accessor (EUD-228, AC-04/EC-01): consumers that need to know whether the
+     * official trust anchors are stale, or have never synced at all, use this instead of
+     * {@link #currentAnchors()}. Existing callers of {@link #currentAnchors()} are unaffected.
+     */
+    public TrustAnchorSet currentAnchorSet() {
+        return repository.current();
+    }
 }

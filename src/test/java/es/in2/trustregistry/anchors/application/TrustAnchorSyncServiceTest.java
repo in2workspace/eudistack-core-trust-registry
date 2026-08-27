@@ -290,4 +290,35 @@ class TrustAnchorSyncServiceTest {
         // Assert
         assertThat(anchors).isEmpty();
     }
+
+    @Test
+    void currentAnchorSet_RepositoryHoldsASyncedSet_ReturnsTheFullSetUnchanged() {
+        // Arrange: EUD-228 AC-04/EC-01 — unlike currentAnchors(), this accessor must not
+        // discard isNeverSynced()/lastSuccessfulSyncAt().
+        TrustAnchor granted = anchor("CN=Granted", TrustServiceStatus.GRANTED);
+        TrustAnchorSet syncedSet = new TrustAnchorSet(List.of(granted), SYNC_INSTANT);
+        when(repository.current()).thenReturn(syncedSet);
+
+        // Act
+        TrustAnchorSet result = service.currentAnchorSet();
+
+        // Assert
+        assertThat(result).isSameAs(syncedSet);
+        assertThat(result.isNeverSynced()).isFalse();
+        assertThat(result.lastSuccessfulSyncAt()).isEqualTo(SYNC_INSTANT);
+    }
+
+    @Test
+    void currentAnchorSet_RepositoryNeverSynced_ReturnsANeverSyncedSet() {
+        // Arrange
+        when(repository.current()).thenReturn(TrustAnchorSet.neverSynced());
+
+        // Act
+        TrustAnchorSet result = service.currentAnchorSet();
+
+        // Assert
+        assertThat(result.isNeverSynced()).isTrue();
+        assertThat(result.anchors()).isEmpty();
+        assertThat(result.lastSuccessfulSyncAt()).isNull();
+    }
 }
