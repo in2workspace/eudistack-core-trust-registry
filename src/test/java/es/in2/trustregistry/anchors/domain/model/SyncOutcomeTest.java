@@ -64,4 +64,38 @@ class SyncOutcomeTest {
         assertThat(outcome.anchors()).hasSize(1);
         assertThat(outcome.rejections()).hasSize(1);
     }
+
+    @Test
+    void twoArgConstructor_NoStaleNextUpdateListsGiven_DefaultsToEmpty() {
+        // Arrange & Act: convenience constructor used by callers with no EC-02 signal to report.
+        SyncOutcome outcome = new SyncOutcome(List.of(anAnchor()), List.of());
+
+        // Assert
+        assertThat(outcome.listsWithStaleNextUpdate()).isEmpty();
+        assertThat(outcome.hasStaleNextUpdates()).isFalse();
+    }
+
+    @Test
+    void hasStaleNextUpdates_AtLeastOneListAccepted_WithNextUpdatePassed_ReturnsTrue() {
+        // Arrange: EC-02 — the list is accepted (not a ListRejection), but the condition must
+        // still be visible to operations (NFR-O-227-01).
+        SyncOutcome outcome = new SyncOutcome(List.of(anAnchor()), List.of(), List.of("https://tl.es/tl.xml"));
+
+        // Act & Assert
+        assertThat(outcome.hasStaleNextUpdates()).isTrue();
+        assertThat(outcome.listsWithStaleNextUpdate()).containsExactly("https://tl.es/tl.xml");
+    }
+
+    @Test
+    void threeArgConstructor_MutatingStaleListAfterConstruction_DoesNotAffectTheOutcome() {
+        // Arrange
+        List<String> staleLists = new ArrayList<>(List.of("https://tl.es/tl.xml"));
+        SyncOutcome outcome = new SyncOutcome(List.of(), List.of(), staleLists);
+
+        // Act
+        staleLists.add("https://tl.fr/tl.xml");
+
+        // Assert
+        assertThat(outcome.listsWithStaleNextUpdate()).containsExactly("https://tl.es/tl.xml");
+    }
 }
