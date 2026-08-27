@@ -64,8 +64,27 @@ public class TrustAnchorSyncService {
      * "build a {@link TrustAnchorSet}, replace atomically" step, so it lives here once rather
      * than being duplicated in the scheduler, which has no reason to know about {@link Clock}
      * or {@link TrustAnchorRepositoryPort}.
+     *
+     * <p><b>EC-04 fix (found while building task 15's container test, see {@code tasks.md}
+     * task 10 addendum):</b> an outcome that gathered no anchors because every attempted list
+     * was rejected (no source reachable and verified, no cache to fall back on) is not a
+     * genuine synchronisation — it must leave a never-synced repository never-synced, so
+     * {@link TrustAnchorSet#isNeverSynced()} keeps meaning "no trust answer is available by
+     * this route" instead of being unconditionally cleared by the very first attempt,
+     * successful or not. A repository that was already synced before is left completely
+     * untouched by such a fully-failed attempt (AD-3: stale trust is served, not wiped, and
+     * a failed refresh is not even a stale-marking event — it is simply not applied). This is
+     * distinct from a genuinely empty but successful outcome (zero anchors, zero rejections —
+     * a real list that verified and legitimately lists nothing), which still stamps a fresh
+     * instant exactly as before.
      */
     public void applyOutcome(SyncOutcome outcome) {
+        boolean everyAttemptedListFailed = outcome.anchors().isEmpty() && outcome.hasRejections();
+        if (everyAttemptedListFailed) {
+            log.warn("Trust anchor sync produced no anchors and {} rejection(s); leaving the "
+                    + "served anchor set untouched (EC-04)", outcome.rejections().size());
+            return;
+        }
         TrustAnchorSet newAnchorSet = new TrustAnchorSet(outcome.anchors(), Instant.now(clock));
         repository.replaceAll(newAnchorSet);
         log.info("Trust anchor sync completed: {} anchor(s), {} rejection(s)",
