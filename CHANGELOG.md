@@ -17,6 +17,13 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   Each list (LOTL or national) is processed independently; an unreachable or signature-invalid
   list becomes a `ListRejection` without aborting the run for the others (`AC-02`, `EC-01`,
   `ES-02`).
+- `TrustAnchorSyncScheduler` (EUD-227, `NFR-O-227-01`) now records Micrometer metrics on every
+  refresh: `trust_registry.anchor_sync.result` (success/failure counter per trigger),
+  `trust_registry.anchor_sync.rejections` (counter per rejection reason),
+  `trust_registry.anchor_sync.stale_next_update` (counter for `EC-02`), and
+  `trust_registry.anchor_set.age_seconds` / `trust_registry.anchor_set.never_synced` (gauges read
+  live from the served anchor set), so operations can detect a failed or stale synchronisation
+  before a consumer does.
 
 ### Changed
 
@@ -32,6 +39,9 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   replacement guarantee already provided by its `AtomicReference<TrustAnchorSet>` storage: a
   concurrent `current()` read always returns the full previous set or the full new one, never a
   mix, backed by a dedicated concurrent-readers test.
+- `SyncOutcome` (EUD-227, `EC-02`) now carries `listsWithStaleNextUpdate`: lists accepted despite
+  a next-update date already in the past are still visible on the outcome, not only via log,
+  closing the `TD-01` gap ahead of `NFR-O-227-01`'s dashboard requirement.
 
 ### Fixed
 
