@@ -4,6 +4,8 @@ import es.in2.trustregistry.anchors.domain.model.ListRejection.RejectionReason;
 import es.in2.trustregistry.anchors.domain.model.SyncOutcome;
 import es.in2.trustregistry.anchors.domain.model.TrustAnchor;
 import es.in2.trustregistry.anchors.domain.model.TrustServiceStatus;
+import eu.europa.esig.dss.enumerations.Indication;
+import eu.europa.esig.dss.enumerations.SubIndication;
 import eu.europa.esig.dss.model.timedependent.TimeDependentValues;
 import eu.europa.esig.dss.model.tsl.DownloadInfoRecord;
 import eu.europa.esig.dss.model.tsl.LOTLInfo;
@@ -125,6 +127,75 @@ class DssOfficialTrustListAdapterTest {
             assertThat(outcome.anchors()).hasSize(1);
             assertThat(outcome.anchors().get(0).territory()).isEqualTo("FR");
         }
+    }
+
+    @Test
+    void fetchAnchors_NationalListSignatureIndeterminate_RejectsThatListContributingZeroAnchors() {
+        // Arrange: B2 — a list re-signed end-to-end by an untrusted key produces a signature
+        // that is well-formed but does not chain to the official signing-cert store. DSS reports
+        // this as Indication.INDETERMINATE, not TOTAL_FAILED, so isInvalid() alone is false and
+        // must not be read as "verified."
+        LOTLInfo lotlInfo = validLotlInfo("https://ec.europa.eu/lotl");
+
+        TLInfo untrustedTl = mockTlInfo("https://tl.untrusted-signer/tl.xml");
+        DownloadInfoRecord untrustedDownload = mockDownloadInfo(false, null);
+        ValidationInfoRecord untrustedValidation = mockValidationInfoUntrustedSigner();
+        when(untrustedTl.getDownloadCacheInfo()).thenReturn(untrustedDownload);
+        when(untrustedTl.getValidationCacheInfo()).thenReturn(untrustedValidation);
+
+        TLInfo validTl = validTlInfo("https://tl.valid/tl.xml");
+        validParsingInfo(validTl, "FR", List.of(provider(
+                "FR",
+                trustService(GRANTED_STATUS, Instant.parse("2026-01-01T00:00:00Z"), null))));
+
+        when(lotlInfo.getTLInfos()).thenReturn(List.of(untrustedTl, validTl));
+        when(summary.getLOTLInfos()).thenReturn(List.of(lotlInfo));
+        when(summary.getOtherTLInfos()).thenReturn(List.of());
+        when(trustListValidationJob.getSummary()).thenReturn(summary);
+
+        try (MockedStatic<DSSUtils> dssUtils = mockStatic(DSSUtils.class)) {
+            dssUtils.when(() -> DSSUtils.convertToPEM(any())).thenReturn("pem");
+
+            // Act
+            SyncOutcome outcome = adapter.fetchAnchors();
+
+            // Assert: the untrusted-signer list is rejected — same reason as a tampered
+            // signature — and contributes zero anchors; the other list is unaffected.
+            assertThat(outcome.rejections())
+                    .extracting(r -> r.listIdentifier(), r -> r.reason())
+                    .containsExactly(org.assertj.core.groups.Tuple.tuple(
+                            "https://tl.untrusted-signer/tl.xml", RejectionReason.SIGNATURE_INVALID));
+            assertThat(outcome.rejections().get(0).detail())
+                    .contains("INDETERMINATE")
+                    .contains("NO_CERTIFICATE_CHAIN_FOUND");
+            assertThat(outcome.anchors()).hasSize(1);
+            assertThat(outcome.anchors().get(0).territory()).isEqualTo("FR");
+        }
+    }
+
+    @Test
+    void fetchAnchors_LotlSignatureIndeterminate_RejectsLotlAndDerivesNoNationalLists() {
+        // Arrange: B2 at the LOTL level — same untrusted-signer gap, one level up. A LOTL
+        // re-signed by an untrusted key must not let any of its child TLInfos through.
+        LOTLInfo lotlInfo = mockLotlInfo("https://ec.europa.eu/lotl");
+        DownloadInfoRecord download = mockDownloadInfo(false, null);
+        ValidationInfoRecord validation = mockValidationInfoUntrustedSigner();
+        when(lotlInfo.getDownloadCacheInfo()).thenReturn(download);
+        when(lotlInfo.getValidationCacheInfo()).thenReturn(validation);
+
+        when(summary.getLOTLInfos()).thenReturn(List.of(lotlInfo));
+        when(summary.getOtherTLInfos()).thenReturn(List.of());
+        when(trustListValidationJob.getSummary()).thenReturn(summary);
+
+        // Act
+        SyncOutcome outcome = adapter.fetchAnchors();
+
+        // Assert
+        assertThat(outcome.anchors()).isEmpty();
+        assertThat(outcome.rejections())
+                .extracting(r -> r.listIdentifier(), r -> r.reason())
+                .containsExactly(org.assertj.core.groups.Tuple.tuple(
+                        "https://ec.europa.eu/lotl", RejectionReason.SIGNATURE_INVALID));
     }
 
     @Test
@@ -346,7 +417,22 @@ class DssOfficialTrustListAdapterTest {
 
     private ValidationInfoRecord mockValidationInfo(boolean invalid) {
         ValidationInfoRecord info = org.mockito.Mockito.mock(ValidationInfoRecord.class);
-        when(info.isInvalid()).thenReturn(invalid);
+        when(info.isValid()).thenReturn(!invalid);
+        return info;
+    }
+
+    /**
+     * B2 regression fixture: the exact DSS output ({@code ProspectiveCertificateChainCheck},
+     * DSS 6.4) for a list whose signature is cryptographically well-formed but does not chain to
+     * a certificate in the official signing-cert store — {@code isValid()==false} AND
+     * {@code isInvalid()==false}. Before the fix, the adapter's {@code isInvalid()}-only gate let
+     * this straight through as if the list had verified.
+     */
+    private ValidationInfoRecord mockValidationInfoUntrustedSigner() {
+        ValidationInfoRecord info = org.mockito.Mockito.mock(ValidationInfoRecord.class);
+        when(info.isValid()).thenReturn(false);
+        when(info.getIndication()).thenReturn(Indication.INDETERMINATE);
+        when(info.getSubIndication()).thenReturn(SubIndication.NO_CERTIFICATE_CHAIN_FOUND);
         return info;
     }
 

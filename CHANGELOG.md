@@ -126,3 +126,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   and accepted its content anyway with zero rejection recorded — unverified list content
   reaching the served anchor set (`NFR-S-227-01`). Found and reproduced against the real
   packaged image while building task 15's container test.
+- `DssOfficialTrustListAdapter.processLotl`/`processTl` (EUD-227, `NFR-S-227-01`) now reject a
+  list unless DSS's validation outcome is `isValid()` (`Indication.TOTAL_PASSED`), instead of
+  only rejecting when `isInvalid()` (`Indication.TOTAL_FAILED`). A list re-signed end-to-end by
+  a certificate absent from the official signing-cert store — DSS reports this as
+  `Indication.INDETERMINATE`/`SubIndication.NO_CERTIFICATE_CHAIN_FOUND`, not `TOTAL_FAILED` —
+  was previously accepted with zero rejections recorded, reachable via MITM/DNS-spoofing on any
+  national TL URL, no build misconfiguration required. Found via `/code-review` (security
+  screen), independently re-derived against DSS 6.4's own `ProspectiveCertificateChainCheck`
+  source before being fixed.
