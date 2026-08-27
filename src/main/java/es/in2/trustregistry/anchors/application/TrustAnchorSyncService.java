@@ -39,7 +39,7 @@ public class TrustAnchorSyncService {
     }
 
     /**
-     * Runs one synchronisation and returns its {@link SyncOutcome} so callers (metrics,
+     * Runs one online synchronisation and returns its {@link SyncOutcome} so callers (metrics,
      * operational logging — ES-03, NFR-O-227-01) learn about rejected lists, not just the
      * anchors that were kept.
      *
@@ -49,11 +49,27 @@ public class TrustAnchorSyncService {
      */
     public SyncOutcome synchronise() {
         SyncOutcome outcome = officialTrustList.fetchAnchors();
+        applyOutcome(outcome);
+        return outcome;
+    }
+
+    /**
+     * Applies an already-fetched {@link SyncOutcome} to the served anchor set, without
+     * fetching one itself.
+     *
+     * <p>Shared by {@link #synchronise()} (online refresh) and the startup cache-only refresh
+     * ({@code TrustAnchorSyncScheduler}, {@code AD-2}/{@code AC-05}), which populates its
+     * outcome via {@code DssOfficialTrustListAdapter.fetchAnchorsFromCache()} instead of
+     * {@link OfficialTrustListPort#fetchAnchors()}. Both refresh modes need the exact same
+     * "build a {@link TrustAnchorSet}, replace atomically" step, so it lives here once rather
+     * than being duplicated in the scheduler, which has no reason to know about {@link Clock}
+     * or {@link TrustAnchorRepositoryPort}.
+     */
+    public void applyOutcome(SyncOutcome outcome) {
         TrustAnchorSet newAnchorSet = new TrustAnchorSet(outcome.anchors(), Instant.now(clock));
         repository.replaceAll(newAnchorSet);
         log.info("Trust anchor sync completed: {} anchor(s), {} rejection(s)",
                 outcome.anchors().size(), outcome.rejections().size());
-        return outcome;
     }
 
     public List<TrustAnchor> currentAnchors() {

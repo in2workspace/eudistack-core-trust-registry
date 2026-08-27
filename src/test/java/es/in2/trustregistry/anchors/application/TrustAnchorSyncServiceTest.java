@@ -127,6 +127,26 @@ class TrustAnchorSyncServiceTest {
     }
 
     @Test
+    void applyOutcome_PreFetchedOutcome_ReplacesTheServedSetAtomicallyWithTheSyncInstant() {
+        // Arrange: AC-05 — the startup cache-only refresh (TrustAnchorSyncScheduler) fetches its
+        // own SyncOutcome via the adapter directly, then hands it here so the served repository
+        // is genuinely populated, using the same "build a set, replace atomically" step as
+        // synchronise() (AC-07), without duplicating it in the scheduler.
+        TrustAnchor anchor = anchor("CN=Cached", TrustServiceStatus.GRANTED);
+        SyncOutcome outcome = new SyncOutcome(List.of(anchor), List.of());
+
+        // Act
+        service.applyOutcome(outcome);
+
+        // Assert
+        verify(repository).replaceAll(storedAnchorSet.capture());
+        TrustAnchorSet stored = storedAnchorSet.getValue();
+        assertThat(stored.anchors()).containsExactly(anchor);
+        assertThat(stored.lastSuccessfulSyncAt()).isEqualTo(SYNC_INSTANT);
+        assertThat(stored.isNeverSynced()).isFalse();
+    }
+
+    @Test
     void currentAnchors_RepositoryHoldsASyncedSet_ReturnsItsAnchors() {
         // Arrange
         TrustAnchor granted = anchor("CN=Granted", TrustServiceStatus.GRANTED);

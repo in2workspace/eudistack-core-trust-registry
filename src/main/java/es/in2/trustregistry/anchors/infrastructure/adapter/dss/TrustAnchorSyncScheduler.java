@@ -15,13 +15,13 @@ import org.springframework.stereotype.Component;
  * service degrading into an empty, deny-everything registry.
  *
  * <p>The startup listener calls {@link DssOfficialTrustListAdapter#fetchAnchorsFromCache()}
- * directly instead of going through {@link TrustAnchorSyncService}/{@code OfficialTrustListPort}
- * like the scheduled path does. This is a deliberate, narrow exception to routing through the
- * port: task 9 is scoped to proving the cache-only fetch works and is visible at startup, not
- * to changing how the served anchor set is populated — that is task 10's scope
- * ({@code TrustAnchorRepositoryPort.replaceAll(...)}, staleness marking). Whether the startup
- * path should also flow through {@link TrustAnchorSyncService} once it supports a
- * cache-vs-online mode is a decision left open for task 10; flagged here rather than assumed.
+ * directly instead of {@link TrustAnchorSyncService#synchronise()}/{@code OfficialTrustListPort}
+ * like the scheduled path does — {@code OfficialTrustListPort} only exposes the online refresh
+ * ({@code AD-2}), so the cache-only fetch has no port method to go through. It then hands the
+ * resulting {@link SyncOutcome} to {@link TrustAnchorSyncService#applyOutcome(SyncOutcome)} so
+ * the served anchor set is genuinely populated from cache at startup ({@code AC-05},
+ * {@code AC-07}) using the exact same "build a set, replace atomically" step the scheduled
+ * refresh uses, instead of duplicating it here.
  */
 @Slf4j
 @Component
@@ -37,16 +37,15 @@ public class TrustAnchorSyncScheduler {
     }
 
     /**
-     * Populates the anchors from the on-disk cache once, right after startup, without
-     * touching the network ({@code AC-05}, {@code EC-04}). Runs once per application
+     * Populates the served anchor set from the on-disk cache once, right after startup,
+     * without touching the network ({@code AC-05}, {@code EC-04}). Runs once per application
      * lifetime; the recurring refresh is {@link #refresh()}.
      */
     @EventListener(ApplicationReadyEvent.class)
     public void refreshFromCacheOnStartup() {
         try {
             SyncOutcome outcome = officialTrustListAdapter.fetchAnchorsFromCache();
-            log.info("Startup cache-only trust anchor refresh completed: {} anchor(s), {} rejection(s)",
-                    outcome.anchors().size(), outcome.rejections().size());
+            syncService.applyOutcome(outcome);
         } catch (RuntimeException error) {
             log.error("Startup cache-only trust anchor refresh failed: {}", error.getMessage(), error);
         }
