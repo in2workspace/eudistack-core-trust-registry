@@ -8,6 +8,8 @@ import es.in2.trustregistry.anchors.domain.model.TrustAnchorSet;
 import es.in2.trustregistry.anchors.domain.model.TrustServiceStatus;
 import es.in2.trustregistry.anchors.domain.port.OfficialTrustListPort;
 import es.in2.trustregistry.anchors.domain.port.TrustAnchorRepositoryPort;
+import es.in2.trustregistry.anchors.infrastructure.adapter.memory.InMemoryTrustAnchorRepository;
+import org.assertj.core.groups.Tuple;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -25,6 +27,7 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -124,6 +127,62 @@ class TrustAnchorSyncServiceTest {
         // Act & Assert
         assertThatThrownBy(() -> service.synchronise()).isInstanceOf(IllegalStateException.class);
         verify(repository, never()).replaceAll(ArgumentMatchers.any());
+    }
+
+    @Test
+    void synchronise_ServiceNoLongerGrantedInTheNextSync_AnchorLeavesTheServedSet() {
+        // Arrange: EC-03 — a service that was granted at the previous sync is withdrawn (or
+        // simply absent) in the next one; the served set must reflect the new outcome only.
+        SyncOutcome firstOutcome = new SyncOutcome(
+                List.of(anchor("CN=StillGranted", TrustServiceStatus.GRANTED),
+                        anchor("CN=NowWithdrawn", TrustServiceStatus.GRANTED)), List.of());
+        when(officialTrustList.fetchAnchors()).thenReturn(firstOutcome);
+        service.synchronise();
+
+        SyncOutcome secondOutcome = new SyncOutcome(List.of(
+                anchor("CN=StillGranted", TrustServiceStatus.GRANTED),
+                anchor("CN=NowWithdrawn", TrustServiceStatus.WITHDRAWN)), List.of());
+        when(officialTrustList.fetchAnchors()).thenReturn(secondOutcome);
+
+        // Act
+        service.synchronise();
+
+        // Assert: the withdrawn service's anchor is stored, but it is not usable any more —
+        // the served set moved on from the first sync's outcome to the second's.
+        verify(repository, times(2)).replaceAll(storedAnchorSet.capture());
+        TrustAnchorSet stored = storedAnchorSet.getValue();
+        assertThat(stored.anchors())
+                .extracting(TrustAnchor::subject, TrustAnchor::status)
+                .containsExactly(
+                        Tuple.tuple("CN=StillGranted", TrustServiceStatus.GRANTED),
+                        Tuple.tuple("CN=NowWithdrawn", TrustServiceStatus.WITHDRAWN));
+    }
+
+    @Test
+    void synchronise_FailsMidRunAgainstARealRepository_PreviousSetSurvivesAndTheNextSyncRecovers() {
+        // Arrange: ES-03 end to end against a real (non-mocked) repository — a previously
+        // served set must remain fully queryable after a failed sync, with no partial
+        // corruption, and the following synchronisation must succeed normally.
+        InMemoryTrustAnchorRepository realRepository = new InMemoryTrustAnchorRepository();
+        Clock clock = Clock.fixed(SYNC_INSTANT, ZoneOffset.UTC);
+        TrustAnchorSyncService serviceWithRealRepository =
+                new TrustAnchorSyncService(officialTrustList, realRepository, clock);
+
+        TrustAnchor previouslyServed = anchor("CN=PreviouslyServed", TrustServiceStatus.GRANTED);
+        TrustAnchor recovered = anchor("CN=Recovered", TrustServiceStatus.GRANTED);
+        when(officialTrustList.fetchAnchors())
+                .thenReturn(new SyncOutcome(List.of(previouslyServed), List.of()))
+                .thenThrow(new IllegalStateException("LOTL unreachable"))
+                .thenReturn(new SyncOutcome(List.of(recovered), List.of()));
+        serviceWithRealRepository.synchronise();
+
+        // Act & Assert: the failed sync leaves the previous set exactly as it was.
+        assertThatThrownBy(serviceWithRealRepository::synchronise).isInstanceOf(IllegalStateException.class);
+        assertThat(serviceWithRealRepository.currentAnchors()).containsExactly(previouslyServed);
+
+        // Act & Assert: the next synchronisation runs normally and replaces the set.
+        serviceWithRealRepository.synchronise();
+        assertThat(serviceWithRealRepository.currentAnchors()).containsExactly(recovered);
     }
 
     @Test
