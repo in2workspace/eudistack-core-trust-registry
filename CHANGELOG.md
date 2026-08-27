@@ -11,6 +11,27 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Initial scaffolding: hexagonal package layout, trust snapshot API, private trusted
   entity API, in-memory adapters, DSS dependency set and CI pipeline.
 - `docs/architecture.md` with the two-layer design and the accepted decisions.
+- `TrustAnchorSet` (EUD-227, `AC-06`): the aggregate holding the served anchors together with the
+  instant of their last successful synchronisation, distinguishing a repository that has never
+  synchronised from one that synchronised to an empty result. `isStaleAt(instant, maxAge)` marks a
+  set as stale without ever emptying it.
+- `SyncOutcome` and `ListRejection` (EUD-227, `AC-02`, `ES-02`, `EC-01`): the per-run result type
+  reporting which anchors were gathered and, per rejected list, why (`SIGNATURE_INVALID`,
+  `UNREACHABLE`, `UNKNOWN`), instead of collapsing a partially-failed run into a single boolean.
+- `TrustRegistryProperties` (EUD-227, `AC-06`) gains `max-age` (default `PT24H`,
+  `TRUST_REGISTRY_MAX_AGE`) and a nested `sync.initial-delay`/`sync.interval` configuration group
+  for the scheduled synchronisation job.
+- DSS `TLValidationJob` context (EUD-227, `AC-01`, `ES-01`): `LOTLSource` with pivot support, a
+  file-backed cache loader, and the official signing-certificate keystore, validated eagerly at
+  application startup (`@Configuration` bean construction) so a missing or unreadable keystore
+  fails the boot instead of silently serving unverifiable trust. Vendors DSS's own `dss-cookbook`
+  reference OJ keystore rather than an unofficial third-party certificate source (`AD-12`,
+  `docs/architecture.md` §3.3) — most of its bundled certificates are already expired upstream,
+  tracked as a known risk, not a defect introduced here.
+- `DssOfficialTrustListAdapter.fetchAnchorsFromCache()` (EUD-227, `AC-05`, `EC-04`): a cache-only
+  refresh path (`TLValidationJob.offlineRefresh()`) alongside the existing online refresh, run once
+  at `ApplicationReadyEvent` so the service can populate its served anchor set from the last good
+  synchronisation before any network call is attempted.
 - `DssOfficialTrustListAdapter` implementation (EUD-227): triggers `TLValidationJob.onlineRefresh()`
   and maps its `TLValidationJobSummary` to `TrustAnchor`s without filtering by service status
   (`AC-03`), preserving each service's status window for evaluation at query time (`AD-4`).
@@ -55,6 +76,16 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - Web stack moved from WebFlux to WebMvc on virtual threads (`AD-7`): DSS is blocking, so
   the reactive layer added no concurrency and cost debuggability.
+- **Breaking:** `TrustAnchor.isUsable()` (EUD-227, `AC-03`, `AC-04`) is replaced by
+  `isUsableAt(Instant)`: usability is now evaluated against the instant of the act being checked,
+  not against the current clock, so a service that was granted when it signed stays usable for
+  that act even after the grant later ends. Anchors are no longer filtered by status at
+  synchronisation time — every status period is kept, and usability is resolved at query time.
+- **Breaking:** `OfficialTrustListPort.fetchAnchors()` (EUD-227, `AC-02`) now returns a
+  `SyncOutcome` instead of a plain `List<TrustAnchor>`, and `TrustAnchorRepositoryPort` (`AC-06`,
+  `AC-07`) is renamed from `findAll()`/`replaceAll(List<TrustAnchor>)` to
+  `current()`/`replaceAll(TrustAnchorSet)`, so the served set always carries its synchronisation
+  instant and staleness together with its anchors.
 - `TrustAnchorSyncService.synchronise()` (EUD-227) now builds a `TrustAnchorSet` from the
   `SyncOutcome` returned by the official trust list port and replaces the served set with a
   single atomic call, stamped with the synchronisation instant (`AC-06`, `AC-07`). A failure
