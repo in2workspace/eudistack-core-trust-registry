@@ -46,6 +46,14 @@ import java.util.List;
  * lists. A LOTL itself failing verification ({@code ES-02}) is reported the same way and, by
  * construction, carries no derived national lists to process.
  *
+ * <p>Per {@code AD-2}, {@link #fetchAnchors()} ({@code onlineRefresh()}) and
+ * {@link #fetchAnchorsFromCache()} ({@code offlineRefresh()}) are two distinct DSS
+ * operations exposed as two methods on this class, not two port methods: which one runs is
+ * an infrastructure/trigger concern ({@link TrustAnchorSyncScheduler} at startup vs on the
+ * schedule), not a domain one — {@link OfficialTrustListPort} only ever promises "the current
+ * sync outcome". Both share the mapping logic below, which reads {@code getSummary()} the
+ * same way regardless of which refresh populated it.
+ *
  * <p>DSS is blocking by design, which is why this service runs WebMvc on virtual threads
  * rather than WebFlux.
  */
@@ -62,6 +70,28 @@ public class DssOfficialTrustListAdapter implements OfficialTrustListPort {
     @Override
     public SyncOutcome fetchAnchors() {
         trustListValidationJob.onlineRefresh();
+        return buildOutcomeFromSummary();
+    }
+
+    /**
+     * Populates the anchor set from the on-disk cache only, touching no network
+     * ({@code AD-2}). Used at startup ({@code AC-05}) instead of {@link #fetchAnchors()},
+     * so a cold or unreachable network never blocks the service from coming up.
+     *
+     * <p>DSS's {@code offlineRefresh()} runs the exact same download/parse/validate pipeline
+     * as {@code onlineRefresh()}, only backed by the offline {@code FileCacheDataLoader}
+     * ({@link DssTrustListJobConfig#offlineTrustListLoader()}). When a list has never been
+     * cached, that loader reports a download error for it, same as an unreachable source
+     * would ({@code EC-01}'s path); the mapping below is refresh-mode-agnostic and already
+     * turns that into a {@link ListRejection} with no anchors derived, which is exactly what
+     * {@code EC-04} requires for "no cache and no network": an empty, non-exceptional result.
+     */
+    public SyncOutcome fetchAnchorsFromCache() {
+        trustListValidationJob.offlineRefresh();
+        return buildOutcomeFromSummary();
+    }
+
+    private SyncOutcome buildOutcomeFromSummary() {
         TLValidationJobSummary summary = trustListValidationJob.getSummary();
 
         List<TrustAnchor> anchors = new ArrayList<>();

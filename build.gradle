@@ -139,6 +139,11 @@ tasks.named('test') {
         // through the `integrationTest` task below.
         excludeTags 'container'
     }
+    // Mockito's inline mock maker (needed to mock concrete classes such as DSS's
+    // TLValidationJob) self-attaches a Java agent at runtime. JDK 25 disallows that
+    // by default and fails silently — mocked fields come back null instead of an
+    // exception — unless the running JVM opts back in explicitly.
+    jvmArgs('-XX:+EnableDynamicAgentLoading')
     finalizedBy(tasks.jacocoTestReport)
 }
 
