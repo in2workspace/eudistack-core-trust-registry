@@ -28,6 +28,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   mid-run never reaches the replacement, so the previous set survives untouched (`ES-03`).
   `synchronise()` now returns the `SyncOutcome` itself instead of an anchor count, so callers
   learn about per-list rejections, not just anchors kept.
+- `InMemoryTrustAnchorRepository` (EUD-227, `AC-07`) documents and verifies the atomic
+  replacement guarantee already provided by its `AtomicReference<TrustAnchorSet>` storage: a
+  concurrent `current()` read always returns the full previous set or the full new one, never a
+  mix, backed by a dedicated concurrent-readers test.
 
 ### Fixed
 
