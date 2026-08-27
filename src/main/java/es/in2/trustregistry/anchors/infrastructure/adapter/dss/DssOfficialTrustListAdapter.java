@@ -96,18 +96,20 @@ public class DssOfficialTrustListAdapter implements OfficialTrustListPort {
 
         List<TrustAnchor> anchors = new ArrayList<>();
         List<ListRejection> rejections = new ArrayList<>();
+        List<String> listsWithStaleNextUpdate = new ArrayList<>();
 
         for (LOTLInfo lotlInfo : summary.getLOTLInfos()) {
-            processLotl(lotlInfo, anchors, rejections);
+            processLotl(lotlInfo, anchors, rejections, listsWithStaleNextUpdate);
         }
         for (TLInfo tlInfo : summary.getOtherTLInfos()) {
-            processTl(tlInfo, anchors, rejections);
+            processTl(tlInfo, anchors, rejections, listsWithStaleNextUpdate);
         }
 
-        return new SyncOutcome(anchors, rejections);
+        return new SyncOutcome(anchors, rejections, listsWithStaleNextUpdate);
     }
 
-    private void processLotl(LOTLInfo lotlInfo, List<TrustAnchor> anchors, List<ListRejection> rejections) {
+    private void processLotl(LOTLInfo lotlInfo, List<TrustAnchor> anchors, List<ListRejection> rejections,
+                              List<String> listsWithStaleNextUpdate) {
         String listIdentifier = lotlInfo.getUrl();
 
         if (lotlInfo.getDownloadCacheInfo().isError()) {
@@ -124,14 +126,17 @@ public class DssOfficialTrustListAdapter implements OfficialTrustListPort {
             return;
         }
 
-        warnIfNextUpdatePassed(listIdentifier, lotlInfo.getParsingCacheInfo());
+        if (isNextUpdatePassed(listIdentifier, lotlInfo.getParsingCacheInfo())) {
+            listsWithStaleNextUpdate.add(listIdentifier);
+        }
 
         for (TLInfo tlInfo : lotlInfo.getTLInfos()) {
-            processTl(tlInfo, anchors, rejections);
+            processTl(tlInfo, anchors, rejections, listsWithStaleNextUpdate);
         }
     }
 
-    private void processTl(TLInfo tlInfo, List<TrustAnchor> anchors, List<ListRejection> rejections) {
+    private void processTl(TLInfo tlInfo, List<TrustAnchor> anchors, List<ListRejection> rejections,
+                            List<String> listsWithStaleNextUpdate) {
         String listIdentifier = tlInfo.getUrl();
 
         if (tlInfo.getDownloadCacheInfo().isError()) {
@@ -149,7 +154,9 @@ public class DssOfficialTrustListAdapter implements OfficialTrustListPort {
             return;
         }
 
-        warnIfNextUpdatePassed(listIdentifier, tlInfo.getParsingCacheInfo());
+        if (isNextUpdatePassed(listIdentifier, tlInfo.getParsingCacheInfo())) {
+            listsWithStaleNextUpdate.add(listIdentifier);
+        }
 
         ParsingInfoRecord parsingInfo = tlInfo.getParsingCacheInfo();
         String territory = parsingInfo.getTerritory();
@@ -209,17 +216,19 @@ public class DssOfficialTrustListAdapter implements OfficialTrustListPort {
     /**
      * EC-02: a next-update date already in the past does not reject the list — its content is
      * still accepted as long as the signature verifies — but the condition must be visible to
-     * the operation. {@code technical-design.md} does not define a dedicated field on
-     * {@link SyncOutcome}/{@link ListRejection} for this signal, so it is surfaced as a log
-     * warning for now; see the tech-debt note filed alongside this task for the proper
-     * outcome-level signal.
+     * the operation. Logged for immediate diagnosis and, per {@code NFR-O-227-01}, surfaced to
+     * the caller so it can become a first-class {@link SyncOutcome#listsWithStaleNextUpdate()}
+     * entry instead of only a log line (see the tech-debt note filed alongside task 8, resolved
+     * by task 12).
      */
-    private void warnIfNextUpdatePassed(String listIdentifier, ParsingInfoRecord parsingInfo) {
+    private boolean isNextUpdatePassed(String listIdentifier, ParsingInfoRecord parsingInfo) {
         java.util.Date nextUpdateDate = parsingInfo.getNextUpdateDate();
-        if (nextUpdateDate != null && nextUpdateDate.toInstant().isBefore(Instant.now())) {
+        boolean stale = nextUpdateDate != null && nextUpdateDate.toInstant().isBefore(Instant.now());
+        if (stale) {
             log.warn("List '{}' declares a next-update date ({}) already in the past; its "
                     + "content is still accepted because its signature verifies (EC-02)",
                     listIdentifier, nextUpdateDate.toInstant());
         }
+        return stale;
     }
 }

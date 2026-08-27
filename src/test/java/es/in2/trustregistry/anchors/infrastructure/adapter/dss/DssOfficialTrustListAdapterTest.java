@@ -234,6 +234,45 @@ class DssOfficialTrustListAdapterTest {
     }
 
     @Test
+    void fetchAnchors_NationalListNextUpdatePassed_AcceptsItAndReportsItAsStale() {
+        // Arrange: EC-02 — a next-update date already in the past does not reject the list (its
+        // anchors are still gathered), but NFR-O-227-01 requires the condition to be visible
+        // beyond the log, via SyncOutcome#listsWithStaleNextUpdate().
+        LOTLInfo lotlInfo = validLotlInfo("https://ec.europa.eu/lotl");
+
+        TLInfo staleTl = mockTlInfo("https://tl.stale/tl.xml");
+        DownloadInfoRecord download = mockDownloadInfo(false, null);
+        ValidationInfoRecord validation = mockValidationInfo(false);
+        when(staleTl.getDownloadCacheInfo()).thenReturn(download);
+        when(staleTl.getValidationCacheInfo()).thenReturn(validation);
+        TrustService service = trustService(GRANTED_STATUS, Instant.parse("2026-01-01T00:00:00Z"), null);
+        TrustServiceProvider provider = provider("ES", service);
+        ParsingInfoRecord parsingInfo = org.mockito.Mockito.mock(ParsingInfoRecord.class);
+        when(parsingInfo.getNextUpdateDate()).thenReturn(Date.from(Instant.now().minusSeconds(86_400)));
+        when(parsingInfo.getTerritory()).thenReturn("ES");
+        when(parsingInfo.getTrustServiceProviders()).thenReturn(List.of(provider));
+        when(staleTl.getParsingCacheInfo()).thenReturn(parsingInfo);
+
+        when(lotlInfo.getTLInfos()).thenReturn(List.of(staleTl));
+        when(summary.getLOTLInfos()).thenReturn(List.of(lotlInfo));
+        when(summary.getOtherTLInfos()).thenReturn(List.of());
+        when(trustListValidationJob.getSummary()).thenReturn(summary);
+
+        try (MockedStatic<DSSUtils> dssUtils = mockStatic(DSSUtils.class)) {
+            dssUtils.when(() -> DSSUtils.convertToPEM(any())).thenReturn("pem");
+
+            // Act
+            SyncOutcome outcome = adapter.fetchAnchors();
+
+            // Assert
+            assertThat(outcome.rejections()).isEmpty();
+            assertThat(outcome.anchors()).hasSize(1);
+            assertThat(outcome.hasStaleNextUpdates()).isTrue();
+            assertThat(outcome.listsWithStaleNextUpdate()).containsExactly("https://tl.stale/tl.xml");
+        }
+    }
+
+    @Test
     void fetchAnchors_WithdrawnService_KeepsAnchorInsteadOfFiltering() {
         // Arrange: AD-4/AC-03 — synchronisation never filters by status.
         LOTLInfo lotlInfo = validLotlInfo("https://ec.europa.eu/lotl");
