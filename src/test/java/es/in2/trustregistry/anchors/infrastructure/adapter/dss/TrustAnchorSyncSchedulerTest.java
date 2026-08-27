@@ -31,7 +31,7 @@ class TrustAnchorSyncSchedulerTest {
     void refresh_SyncSucceeds_DelegatesToTheService() {
         // Arrange
         TrustAnchorSyncScheduler scheduler = new TrustAnchorSyncScheduler(syncService, officialTrustListAdapter);
-        when(syncService.synchronise()).thenReturn(3);
+        when(syncService.synchronise()).thenReturn(new SyncOutcome(List.of(), List.of()));
 
         // Act
         scheduler.refresh();
