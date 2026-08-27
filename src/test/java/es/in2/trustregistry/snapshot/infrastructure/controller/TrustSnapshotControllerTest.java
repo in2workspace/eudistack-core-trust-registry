@@ -4,6 +4,7 @@ import com.nimbusds.jose.jwk.Curve;
 import com.nimbusds.jose.jwk.ECKey;
 import com.nimbusds.jose.jwk.gen.ECKeyGenerator;
 import es.in2.trustregistry.snapshot.application.TrustSnapshotService;
+import es.in2.trustregistry.snapshot.domain.model.TrustProfile;
 import es.in2.trustregistry.snapshot.domain.model.TrustSnapshot;
 import es.in2.trustregistry.snapshot.infrastructure.adapter.JwsSnapshotSigner;
 import org.junit.jupiter.api.Test;
@@ -50,7 +51,8 @@ class TrustSnapshotControllerTest {
     void plainSnapshot_TenantHeaderPresent_ReturnsTheUnsignedSnapshot() throws Exception {
         // Arrange
         when(service.build(TENANT)).thenReturn(new TrustSnapshot(
-                TENANT, 3L, Instant.parse("2026-08-25T10:00:00Z"), 86400, List.of(), List.of()));
+                TENANT, 3L, Instant.parse("2026-08-25T10:00:00Z"), 86400, List.of(), List.of(),
+                TrustProfile.PRODUCTION, false, Instant.parse("2026-08-25T09:00:00Z")));
 
         // Act & Assert
         mockMvc.perform(get("/trust/v1/snapshot/plain").header("X-Tenant", TENANT))

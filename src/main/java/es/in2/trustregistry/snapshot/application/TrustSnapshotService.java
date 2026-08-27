@@ -3,6 +3,7 @@ package es.in2.trustregistry.snapshot.application;
 import es.in2.trustregistry.anchors.application.TrustAnchorSyncService;
 import es.in2.trustregistry.entities.application.TrustedEntityService;
 import es.in2.trustregistry.shared.infrastructure.config.TrustRegistryProperties;
+import es.in2.trustregistry.snapshot.domain.model.TrustProfile;
 import es.in2.trustregistry.snapshot.domain.model.TrustSnapshot;
 import es.in2.trustregistry.snapshot.domain.port.SnapshotSignerPort;
 import org.springframework.stereotype.Service;
@@ -35,13 +36,19 @@ public class TrustSnapshotService {
     }
 
     public TrustSnapshot build(String tenantId) {
+        // TODO(EUD-228 task 9): rewrite to consume the full TrustAnchorSet (stale,
+        // last successful sync instant) instead of currentAnchors(); trustProfile is
+        // hardcoded to the strict default here until TrustRegistryProperties carries it.
         return new TrustSnapshot(
                 tenantId,
                 version.incrementAndGet(),
                 Instant.now(clock),
                 properties.snapshotTimeToLiveSeconds(),
                 anchorService.currentAnchors(),
-                entityService.list(tenantId));
+                entityService.list(tenantId),
+                TrustProfile.PRODUCTION,
+                false,
+                null);
     }
 
     public String buildSigned(String tenantId) {

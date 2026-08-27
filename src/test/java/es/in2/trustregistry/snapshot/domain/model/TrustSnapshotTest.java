@@ -12,7 +12,8 @@ class TrustSnapshotTest {
     private static final Instant GENERATED_AT = Instant.parse("2026-08-25T10:00:00Z");
 
     private static TrustSnapshot snapshotWithTtl(long seconds) {
-        return new TrustSnapshot("sandbox", 1L, GENERATED_AT, seconds, List.of(), List.of());
+        return new TrustSnapshot("sandbox", 1L, GENERATED_AT, seconds, List.of(), List.of(),
+                TrustProfile.PRODUCTION, false, GENERATED_AT);
     }
 
     @Test

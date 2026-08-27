@@ -6,6 +6,7 @@ import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.nimbusds.jose.JOSEException;
 import com.nimbusds.jose.JWSObject;
 import com.nimbusds.jose.crypto.ECDSAVerifier;
+import es.in2.trustregistry.snapshot.domain.model.TrustProfile;
 import es.in2.trustregistry.snapshot.domain.model.TrustSnapshot;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -19,7 +20,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 class JwsSnapshotSignerTest {
 
     private static final TrustSnapshot SNAPSHOT = new TrustSnapshot(
-            "sandbox", 7L, Instant.parse("2026-08-25T10:00:00Z"), 86400, List.of(), List.of());
+            "sandbox", 7L, Instant.parse("2026-08-25T10:00:00Z"), 86400, List.of(), List.of(),
+            TrustProfile.PRODUCTION, false, Instant.parse("2026-08-25T09:00:00Z"));
 
     private JwsSnapshotSigner signer;
 

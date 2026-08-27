@@ -13,6 +13,18 @@ import java.util.List;
  * <p>The snapshot is what makes distributed evaluation possible. Consumers cache it,
  * verify its signature and then validate certificate chains without calling this service
  * on every request, which keeps the Verifier available and the offline validator usable.
+ *
+ * <p>{@code officialTrustLastSyncedAt} mirrors the same "never synced" vs "synced to an
+ * empty/dated result" distinction that {@link TrustAnchorSet} already encodes: {@code null}
+ * means no successful synchronisation has ever completed, a non-null instant is a real,
+ * dated outcome. {@code officialTrustStale} is a pre-computed flag — this record does not
+ * decide staleness itself; that requires {@code TrustRegistryProperties.maxAge()}, which is
+ * an application-layer concern (see {@code TrustSnapshotService}).
+ *
+ * @param officialTrustStale          whether the official trust anchors are considered
+ *                                    stale, already resolved against the configured max age
+ * @param officialTrustLastSyncedAt   instant of the last successful anchor synchronisation,
+ *                                    or {@code null} if the anchor set has never synced
  */
 public record TrustSnapshot(
         String tenantId,
@@ -20,7 +32,10 @@ public record TrustSnapshot(
         Instant generatedAt,
         long timeToLiveSeconds,
         List<TrustAnchor> anchors,
-        List<TrustedEntity> entities
+        List<TrustedEntity> entities,
+        TrustProfile trustProfile,
+        boolean officialTrustStale,
+        Instant officialTrustLastSyncedAt
 ) {
 
     public Instant expiresAt() {
