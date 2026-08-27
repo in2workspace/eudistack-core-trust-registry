@@ -22,3 +22,9 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - Web stack moved from WebFlux to WebMvc on virtual threads (`AD-7`): DSS is blocking, so
   the reactive layer added no concurrency and cost debuggability.
+- `TrustAnchorSyncService.synchronise()` (EUD-227) now builds a `TrustAnchorSet` from the
+  `SyncOutcome` returned by the official trust list port and replaces the served set with a
+  single atomic call, stamped with the synchronisation instant (`AC-06`, `AC-07`). A failure
+  mid-run never reaches the replacement, so the previous set survives untouched (`ES-03`).
+  `synchronise()` now returns the `SyncOutcome` itself instead of an anchor count, so callers
+  learn about per-list rejections, not just anchors kept.
