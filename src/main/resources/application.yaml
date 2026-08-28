@@ -23,6 +23,21 @@ trust-registry:
   sync:
     initial-delay: ${TRUST_REGISTRY_SYNC_INITIAL_DELAY:PT10S}
     interval: ${TRUST_REGISTRY_SYNC_INTERVAL:PT6H}
+  # Snapshot signing material (ES-01, AD-2 of EUD-228). Deliberately no default here: the
+  # signing key is a secret, and a committed keystore silently used as a fallback would be
+  # worse than failing to start — it would let anyone with repo read access forge trust
+  # snapshots. A deployment that forgets to set these three variables MUST fail to bind at
+  # startup, not fall back to a bundled key (see AD-6 rationale, applied here to the signing
+  # material rather than the /snapshot/plain endpoint).
+  signing:
+    path: ${TRUST_REGISTRY_SIGNING_KEYSTORE_PATH}
+    password: ${TRUST_REGISTRY_SIGNING_KEYSTORE_PASSWORD}
+    alias: ${TRUST_REGISTRY_SIGNING_KEY_ALIAS}
+  # Trust profile this deployment publishes snapshots under (AC-03). Unlike the signing
+  # material above, a safe universal default DOES exist here: PRODUCTION is the strict
+  # profile (AD-6) — /snapshot/plain stays hidden unless a deployment explicitly opts into
+  # DEVELOPMENT. A misconfigured deployment therefore fails safe, never fails open.
+  trust-profile: ${TRUST_REGISTRY_TRUST_PROFILE:PRODUCTION}
 
 management:
   endpoints:
