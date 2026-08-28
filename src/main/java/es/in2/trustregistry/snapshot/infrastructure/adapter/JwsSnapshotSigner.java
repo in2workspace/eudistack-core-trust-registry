@@ -10,37 +10,33 @@ import com.nimbusds.jose.JWSObject;
 import com.nimbusds.jose.JWSSigner;
 import com.nimbusds.jose.Payload;
 import com.nimbusds.jose.crypto.ECDSASigner;
-import com.nimbusds.jose.jwk.Curve;
 import com.nimbusds.jose.jwk.ECKey;
-import com.nimbusds.jose.jwk.gen.ECKeyGenerator;
+import es.in2.trustregistry.snapshot.domain.model.PublicVerificationKey;
 import es.in2.trustregistry.snapshot.domain.model.TrustSnapshot;
 import es.in2.trustregistry.snapshot.domain.port.SnapshotSignerPort;
-import jakarta.annotation.PostConstruct;
-import lombok.extern.slf4j.Slf4j;
+import es.in2.trustregistry.snapshot.domain.port.SnapshotVerificationMaterialPort;
 import org.springframework.stereotype.Component;
 
+import java.util.List;
+
 /**
- * Signs the snapshot with an ES256 key so consumers can verify it offline.
+ * Signs the snapshot with an ES256 key so consumers can verify it offline (AC-02).
  *
- * <p>Scaffolding: the key pair is generated in memory at startup, which means a restart
- * invalidates previously published snapshots. Production key custody (KMS, one key per
- * deployment, published JWKS) is delivered by US-02 of EUD-34.
+ * <p>The signing key is the material {@link KeystoreSnapshotSigningKeyProvider} loaded and
+ * validated at startup (ES-01, AD-2 of EUD-228) — never generated at runtime. {@code kid} in
+ * both the JWS header and the published verification material is the keystore alias the key
+ * was loaded under, since {@link ECKey#load(java.security.KeyStore, String, char[])} already
+ * sets it from the alias; no separate key identifier is assigned here.
  */
-@Slf4j
 @Component
-public class JwsSnapshotSigner implements SnapshotSignerPort {
+public class JwsSnapshotSigner implements SnapshotSignerPort, SnapshotVerificationMaterialPort {
 
     private final ObjectMapper objectMapper;
-    private ECKey signingKey;
+    private final ECKey signingKey;
 
-    public JwsSnapshotSigner(ObjectMapper objectMapper) {
+    public JwsSnapshotSigner(ObjectMapper objectMapper, ECKey signingKey) {
         this.objectMapper = objectMapper;
-    }
-
-    @PostConstruct
-    void generateEphemeralKey() throws JOSEException {
-        this.signingKey = new ECKeyGenerator(Curve.P_256).keyID("trust-registry-dev").generate();
-        log.warn("Using an ephemeral in-memory signing key; snapshots do not survive a restart");
+        this.signingKey = signingKey;
     }
 
     /** Public part of the signing key, to be exposed as a JWKS by the consumer-facing API. */
@@ -62,5 +58,22 @@ public class JwsSnapshotSigner implements SnapshotSignerPort {
         } catch (JOSEException | JsonProcessingException error) {
             throw new IllegalStateException("Unable to sign the trust snapshot", error);
         }
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * <p>Derives the returned key exclusively from {@link ECKey#toPublicJWK()}, which strips
+     * the private scalar; {@link PublicVerificationKey} has no field where it could be carried
+     * even by mistake (NFR-S-228-01).
+     */
+    @Override
+    public List<PublicVerificationKey> verificationMaterial() {
+        ECKey publicKey = signingKey.toPublicJWK();
+        return List.of(new PublicVerificationKey(
+                publicKey.getKeyID(),
+                publicKey.getCurve().getName(),
+                publicKey.getX().toString(),
+                publicKey.getY().toString()));
     }
 }
