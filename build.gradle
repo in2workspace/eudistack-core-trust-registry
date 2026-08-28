@@ -59,7 +59,10 @@ dependencies {
     // --- Cryptography ---
     implementation 'com.nimbusds:nimbus-jose-jwt:10.9.1'
     implementation 'org.bouncycastle:bcprov-jdk18on:1.85.2'
-    implementation 'org.bouncycastle:bcpkix-jdk18on:1.85.2'
+    // bcpkix stays on 1.85 on purpose: BouncyCastle released the 1.85.2 patch for
+    // bcprov only, that artifact does not exist on Maven Central. Raising bcpkix to
+    // 1.85.2 (as Dependabot proposed) breaks :compileClasspath resolution.
+    implementation 'org.bouncycastle:bcpkix-jdk18on:1.85'
 
     // --- Documentation ---
     implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.5.0'
