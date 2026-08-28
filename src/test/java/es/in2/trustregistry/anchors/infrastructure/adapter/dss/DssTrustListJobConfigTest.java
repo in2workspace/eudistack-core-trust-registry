@@ -1,6 +1,7 @@
 package es.in2.trustregistry.anchors.infrastructure.adapter.dss;
 
 import es.in2.trustregistry.shared.infrastructure.config.TrustRegistryProperties;
+import es.in2.trustregistry.snapshot.domain.model.TrustProfile;
 import eu.europa.esig.dss.spi.x509.KeyStoreCertificateSource;
 import org.junit.jupiter.api.Test;
 import org.springframework.core.io.DefaultResourceLoader;
@@ -62,6 +63,10 @@ class DssTrustListJobConfigTest {
                 "build/test-cache",
                 86_400L,
                 Duration.ofHours(24),
-                new TrustRegistryProperties.Sync(Duration.ofSeconds(10), Duration.ofHours(6)));
+                new TrustRegistryProperties.Sync(Duration.ofSeconds(10), Duration.ofHours(6)),
+                new TrustRegistryProperties.Signing(
+                        "classpath:fixtures/snapshot/keystore/valid-signing-keystore.p12",
+                        "snapshot-test-password", "snapshot-signing"),
+                TrustProfile.PRODUCTION);
     }
 }

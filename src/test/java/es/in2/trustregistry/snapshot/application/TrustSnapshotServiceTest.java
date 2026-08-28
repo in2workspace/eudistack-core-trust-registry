@@ -9,6 +9,7 @@ import es.in2.trustregistry.entities.domain.model.EntityRole;
 import es.in2.trustregistry.entities.domain.model.TrustedEntity;
 import es.in2.trustregistry.shared.infrastructure.config.TrustRegistryProperties;
 import es.in2.trustregistry.snapshot.domain.model.PublishedSnapshot;
+import es.in2.trustregistry.snapshot.domain.model.TrustProfile;
 import es.in2.trustregistry.snapshot.domain.model.TrustSnapshot;
 import es.in2.trustregistry.snapshot.domain.port.PublishedSnapshotRepositoryPort;
 import es.in2.trustregistry.snapshot.domain.port.SnapshotSignerPort;
@@ -64,7 +65,11 @@ class TrustSnapshotServiceTest {
         TrustRegistryProperties properties = new TrustRegistryProperties(
                 "https://ec.europa.eu/tools/lotl/eu-lotl.xml", "classpath:keystore/oj-keystore.p12",
                 "/var/cache/trust-registry", 86400, Duration.ofHours(24),
-                new TrustRegistryProperties.Sync(Duration.ofSeconds(10), Duration.ofHours(6)));
+                new TrustRegistryProperties.Sync(Duration.ofSeconds(10), Duration.ofHours(6)),
+                new TrustRegistryProperties.Signing(
+                        "classpath:fixtures/snapshot/keystore/valid-signing-keystore.p12",
+                        "snapshot-test-password", "snapshot-signing"),
+                TrustProfile.PRODUCTION);
         service = new TrustSnapshotService(anchorService, entityService, signer, properties,
                 Clock.fixed(NOW, ZoneOffset.UTC), publishedSnapshotRepository);
 
