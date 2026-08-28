@@ -7,12 +7,13 @@ plugins {
     id 'org.sonarqube' version '7.4.0.8496'
     id 'com.github.ben-manes.versions' version '0.61.0'
     id 'se.patrikerdes.use-latest-versions' version '0.2.19'
+    id 'org.cyclonedx.bom' version '2.2.0'
 }
 
 group = 'com.eudistack'
 // Plain version, no SNAPSHOT: the ci job tags the release v${version}
 // and refuses to run if that tag already exists.
-version = '0.1.0'
+version = '0.1.1'
 
 java {
     toolchain {
@@ -93,6 +94,18 @@ dependencies {
     testImplementation 'org.springframework.boot:spring-boot-testcontainers'
     testImplementation 'org.testcontainers:junit-jupiter'
     testImplementation 'org.awaitility:awaitility'
+
+    // --- License metadata (EUD-38) ---
+    // stax2-api arrives transitively (woodstox → xmlsec → DSS). Version 4.2.1
+    // declares the ambiguous "The BSD License" in its POM, which the CycloneDX
+    // plugin resolves to BSD-4-Clause — the variant with the advertising clause,
+    // which is not what the component actually is. 4.2.2 declares "The BSD
+    // 2-Clause License" explicitly. Same code, unambiguous licence.
+    constraints {
+        implementation('org.codehaus.woodstox:stax2-api:4.2.2') {
+            because 'declares BSD-2-Clause explicitly; 4.2.1 resolves to BSD-4-Clause from an ambiguous POM'
+        }
+    }
 }
 
 configurations.configureEach {
@@ -100,6 +113,19 @@ configurations.configureEach {
 }
 
 // --- Quality & CI ---
+
+// CycloneDX inventory (EUD-220): runtime classpath only — what ships in the
+// artifact — spec 1.6 JSON, serial number off so two runs of the same tree
+// produce byte-identical output.
+cyclonedxBom {
+    includeConfigs = ['runtimeClasspath']
+    schemaVersion = '1.6'
+    destination = project.file('build/reports/sbom')
+    outputName = 'sbom'
+    outputFormat = 'json'
+    includeBomSerialNumber = false
+    includeLicenseText = false
+}
 
 sonar {
     properties {
