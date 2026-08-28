@@ -110,6 +110,17 @@ class TrustListSyncIT {
                 // it don't wait out the production default (application.yaml: PT10S/PT6H).
                 .withEnv("TRUST_REGISTRY_SYNC_INITIAL_DELAY", "PT1S")
                 .withEnv("TRUST_REGISTRY_SYNC_INTERVAL", "PT1H")
+                // EUD-228 (task 15): application.yaml has no default for these three variables
+                // on purpose (ES-01, fail-fast) — the registry needs them to start at all. The
+                // dev-only keystore bundled on the main classpath (task 15) is safe to reuse
+                // here: this container is discarded per scenario, never a real deployment.
+                .withEnv("TRUST_REGISTRY_SIGNING_KEYSTORE_PATH", "classpath:keystore/dev-signing-keystore.p12")
+                .withEnv("TRUST_REGISTRY_SIGNING_KEYSTORE_PASSWORD", "dev-signing-password")
+                .withEnv("TRUST_REGISTRY_SIGNING_KEY_ALIAS", "trust-registry-dev")
+                // plainSnapshot(registry) below reads /trust/v1/snapshot/plain, which task 14
+                // gates to the DEVELOPMENT profile only (AD-6) — this suite is exactly that
+                // profile's intended diagnostic use case, not a production-representative boot.
+                .withEnv("TRUST_REGISTRY_TRUST_PROFILE", "DEVELOPMENT")
                 .withFileSystemBind(TRUSTSTORE_PATH.toString(), KEYSTORE_CONTAINER_PATH, BindMode.READ_ONLY)
                 .withFileSystemBind(cacheDir.toString(), "/var/cache/trust-registry", BindMode.READ_WRITE)
                 .waitingFor(Wait.forHttp("/actuator/health/readiness").forPort(PORT).forStatusCode(200))

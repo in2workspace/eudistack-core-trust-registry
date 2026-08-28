@@ -49,6 +49,13 @@ class TrustRegistryImageIT {
                     .withBuildArg("SKIP_TESTS", "true"))
             .withExposedPorts(PORT)
             .withEnv("SERVER_PORT", String.valueOf(PORT))
+            // EUD-228 (task 15): application.yaml has no default for these three variables on
+            // purpose (ES-01, fail-fast) — the packaged image needs them to start at all. The
+            // dev-only keystore bundled on the main classpath (task 15) is safe to reuse here:
+            // this container is discarded per test run, never a real deployment.
+            .withEnv("TRUST_REGISTRY_SIGNING_KEYSTORE_PATH", "classpath:keystore/dev-signing-keystore.p12")
+            .withEnv("TRUST_REGISTRY_SIGNING_KEYSTORE_PASSWORD", "dev-signing-password")
+            .withEnv("TRUST_REGISTRY_SIGNING_KEY_ALIAS", "trust-registry-dev")
             .waitingFor(Wait.forHttp("/actuator/health/readiness").forPort(PORT).forStatusCode(200))
             .withStartupTimeout(Duration.ofMinutes(5));
 
