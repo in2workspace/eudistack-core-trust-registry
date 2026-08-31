@@ -26,6 +26,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.List;
 
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
@@ -103,6 +104,49 @@ class TrustSnapshotControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(header().string("ETag", "\"12\""))
                 .andExpect(content().string("header.payload.signature"));
+    }
+
+    @Test
+    void signedSnapshot_TenantHeaderIdentifiesAnUnknownTenant_StillPublishesForThatTenant() throws Exception {
+        // Arrange — ES-05: a tenant the registry has no private list for is not rejected; the
+        // controller forwards it to the service exactly as received (empty-but-valid publication
+        // is TrustSnapshotService's responsibility, already covered by EC-02 in
+        // TrustSnapshotServiceTest — this test only proves the controller does not special-case
+        // or block an unrecognised tenant before reaching the service).
+        String unknownTenant = "unknown-tenant";
+        when(service.publishFor(unknownTenant)).thenReturn(published(1L, "unknown-tenant.payload.signature"));
+
+        // Act & Assert
+        mockMvc.perform(get("/trust/v1/snapshot").header("X-Tenant", unknownTenant))
+                .andExpect(status().isOk())
+                .andExpect(header().string("ETag", "\"1\""))
+                .andExpect(content().string("unknown-tenant.payload.signature"));
+    }
+
+    @Test
+    void signedSnapshot_DifferentTenantHeadersAcrossRequests_EachCallsServiceWithItsOwnTenantOnly() throws Exception {
+        // Arrange — ES-05, controller-level slice of "sin fuga entre tenants": the controller
+        // holds no state across requests, so two successive calls with different X-Tenant
+        // values must each reach the service with exactly the tenant they carried, never a
+        // mix-up or a leftover from the previous request. Real content isolation between
+        // tenants is proven end-to-end by TrustRegistryEndToEndTest (AC-08); this test is
+        // narrower — it only proves the controller's header-to-service wiring itself.
+        String tenantA = "tenant-a";
+        String tenantB = "tenant-b";
+        when(service.publishFor(tenantA)).thenReturn(published(1L, "tenant-a.payload.signature"));
+        when(service.publishFor(tenantB)).thenReturn(published(1L, "tenant-b.payload.signature"));
+
+        // Act
+        mockMvc.perform(get("/trust/v1/snapshot").header("X-Tenant", tenantA))
+                .andExpect(status().isOk())
+                .andExpect(content().string("tenant-a.payload.signature"));
+        mockMvc.perform(get("/trust/v1/snapshot").header("X-Tenant", tenantB))
+                .andExpect(status().isOk())
+                .andExpect(content().string("tenant-b.payload.signature"));
+
+        // Assert
+        verify(service).publishFor(tenantA);
+        verify(service).publishFor(tenantB);
     }
 
     @Test
