@@ -102,7 +102,7 @@ dependencies {
     // which is not what the component actually is. 4.2.2 declares "The BSD
     // 2-Clause License" explicitly. Same code, unambiguous licence.
     constraints {
-        implementation('org.codehaus.woodstox:stax2-api:4.2.2') {
+        implementation('org.codehaus.woodstox:stax2-api:4.3.0') {
             because 'declares BSD-2-Clause explicitly; 4.2.1 resolves to BSD-4-Clause from an ambiguous POM'
         }
     }
