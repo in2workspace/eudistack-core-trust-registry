@@ -16,6 +16,7 @@ import es.in2.trustregistry.snapshot.domain.port.SnapshotSignerPort;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -28,23 +29,34 @@ import java.util.Optional;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-// TODO(EUD-228 task 18): this test still exercises the pre-task-9 shape (one TrustAnchorSet with
-// a fixed lastSuccessfulSyncAt, publishFor(tenantId) wired through a stub CAS repository that
-// always applies) with literal/mocked values only, to keep compileTestJava green ahead of the
-// real rewrite. Task 18 owns replacing these scenarios with the full matrix (AC-01, AC-03, AC-04,
-// AC-07, EC-01, EC-02, EC-05, ES-03) — staleness, never-synced anchors, failure injection without
-// version advance, and CAS conflict behaviour are not covered here yet.
+/**
+ * Unit tests for {@link TrustSnapshotService}: AC-01 (source combination), AC-03 (declared
+ * fields), AC-04/EC-01 (staleness and never-synced anchors), AC-07 (both sources empty),
+ * EC-02 (tenant with no private entities), EC-05 (expired entity still travels unfiltered),
+ * ES-03 (a failure while building or signing must not advance the published version).
+ *
+ * <p>{@link SnapshotVersionResolver} only invokes {@code signer} on the "content changed" path,
+ * so every scenario here is a first publication for its tenant (empty repository) unless the
+ * test explicitly needs otherwise — this is what makes {@code signer.sign(...)} always get
+ * called and lets an {@link ArgumentCaptor} on it recover the {@link TrustSnapshot} that
+ * {@code publishFor} built, which {@link PublishedSnapshot} itself does not expose (see its
+ * Javadoc, task 4 Notes).
+ */
 @ExtendWith(MockitoExtension.class)
 class TrustSnapshotServiceTest {
 
     private static final Instant NOW = Instant.parse("2026-08-25T10:00:00Z");
-    private static final String TENANT = "sandbox";
+    private static final String TENANT = "cgcom";
+    private static final Duration MAX_AGE = Duration.ofHours(24);
 
     @Mock
     private TrustAnchorSyncService anchorService;
@@ -64,7 +76,7 @@ class TrustSnapshotServiceTest {
     void setUp() {
         TrustRegistryProperties properties = new TrustRegistryProperties(
                 "https://ec.europa.eu/tools/lotl/eu-lotl.xml", "classpath:keystore/oj-keystore.p12",
-                "/var/cache/trust-registry", 86400, Duration.ofHours(24),
+                "/var/cache/trust-registry", 86400, MAX_AGE,
                 new TrustRegistryProperties.Sync(Duration.ofSeconds(10), Duration.ofHours(6)),
                 new TrustRegistryProperties.Signing(
                         "classpath:fixtures/snapshot/keystore/valid-signing-keystore.p12",
@@ -89,60 +101,175 @@ class TrustSnapshotServiceTest {
                 Set.of(EntityRole.RELYING_PARTY), "pem", NOW.minusSeconds(60), null);
     }
 
+    /** Captures the {@link TrustSnapshot} the service built and handed to the signer. */
+    private TrustSnapshot capturedSnapshot() {
+        ArgumentCaptor<TrustSnapshot> captor = ArgumentCaptor.forClass(TrustSnapshot.class);
+        verify(signer).sign(captor.capture());
+        return captor.getValue();
+    }
+
+    // --- AC-01: the snapshot combines both sources for the tenant ---------------------------
+
     @Test
     void publishFor_AnchorsAndEntitiesAvailable_CombinesBothSourcesForTheTenant() {
         // Arrange
-        when(anchorService.currentAnchorSet()).thenReturn(new TrustAnchorSet(List.of(anchor()), NOW));
-        when(entityService.list(TENANT)).thenReturn(List.of(entity()));
+        TrustAnchor anchor = anchor();
+        TrustedEntity entity = entity();
+        when(anchorService.currentAnchorSet()).thenReturn(new TrustAnchorSet(List.of(anchor), NOW));
+        when(entityService.list(TENANT)).thenReturn(List.of(entity));
 
         // Act
         PublishedSnapshot published = service.publishFor(TENANT);
+        TrustSnapshot snapshot = capturedSnapshot();
 
         // Assert
         assertThat(published.tenantId()).isEqualTo(TENANT);
-        assertThat(published.signedDocument()).isEqualTo("header.payload.signature");
+        assertThat(snapshot.tenantId()).isEqualTo(TENANT);
+        assertThat(snapshot.anchors()).containsExactly(anchor);
+        assertThat(snapshot.entities()).containsExactly(entity);
     }
 
+    // --- AC-03: version, generation, validity and profile are all declared ------------------
+
     @Test
-    void publishFor_AnySnapshot_StampsVersionOne() {
+    void publishFor_AnySnapshot_DeclaresVersionGenerationValidityAndProfile() {
         // Arrange
         when(anchorService.currentAnchorSet()).thenReturn(new TrustAnchorSet(List.of(), NOW));
         when(entityService.list(TENANT)).thenReturn(List.of());
 
         // Act
         PublishedSnapshot published = service.publishFor(TENANT);
+        TrustSnapshot snapshot = capturedSnapshot();
 
         // Assert
         assertThat(published.version()).isEqualTo(1L);
+        assertThat(snapshot.version()).isEqualTo(1L);
+        assertThat(snapshot.generatedAt()).isEqualTo(NOW);
+        assertThat(snapshot.expiresAt()).isEqualTo(NOW.plusSeconds(86400));
+        assertThat(snapshot.trustProfile()).isEqualTo(TrustProfile.PRODUCTION);
     }
 
+    // --- AC-04 / EC-01: official trust staleness and the never-synced-vs-dated distinction --
+
     @Test
-    void publishFor_NoPriorPublication_SealsVersionOneEachTimeTheRepositoryIsEmpty() {
+    void publishFor_LastSyncOlderThanMaxAge_DeclaresOfficialTrustStaleWithRawInstant() {
         // Arrange
-        when(anchorService.currentAnchorSet()).thenReturn(new TrustAnchorSet(List.of(), NOW));
+        Instant lastSync = NOW.minus(MAX_AGE).minusSeconds(1);
+        when(anchorService.currentAnchorSet()).thenReturn(new TrustAnchorSet(List.of(anchor()), lastSync));
         when(entityService.list(TENANT)).thenReturn(List.of());
 
         // Act
-        long first = service.publishFor(TENANT).version();
-        long second = service.publishFor(TENANT).version();
-
-        // Assert — the repository stub above always reports no prior publication, so this only
-        // proves the resolver seals "previous + 1" from what it reads; the real accumulation
-        // across calls needs a stateful repository, exercised by task 18 / the container test.
-        assertThat(first).isEqualTo(1L);
-        assertThat(second).isEqualTo(1L);
-    }
-
-    @Test
-    void buildSigned_AnySnapshot_ReturnsWhatTheSignerProduced() {
-        // Arrange
-        when(anchorService.currentAnchorSet()).thenReturn(new TrustAnchorSet(List.of(), NOW));
-        when(entityService.list(TENANT)).thenReturn(List.of());
-
-        // Act
-        String signed = service.buildSigned(TENANT);
+        service.publishFor(TENANT);
+        TrustSnapshot snapshot = capturedSnapshot();
 
         // Assert
-        assertThat(signed).isEqualTo("header.payload.signature");
+        assertThat(snapshot.officialTrustStale()).isTrue();
+        assertThat(snapshot.officialTrustLastSyncedAt()).isEqualTo(lastSync);
+        assertThat(snapshot.anchors()).isNotEmpty();
+    }
+
+    @Test
+    void publishFor_LastSyncWithinMaxAge_DeclaresOfficialTrustNotStale() {
+        // Arrange
+        Instant lastSync = NOW.minus(MAX_AGE).plusSeconds(1);
+        when(anchorService.currentAnchorSet()).thenReturn(new TrustAnchorSet(List.of(anchor()), lastSync));
+        when(entityService.list(TENANT)).thenReturn(List.of());
+
+        // Act
+        service.publishFor(TENANT);
+        TrustSnapshot snapshot = capturedSnapshot();
+
+        // Assert
+        assertThat(snapshot.officialTrustStale()).isFalse();
+    }
+
+    @Test
+    void publishFor_AnchorsNeverSynced_DeclaresStaleWithNoLastSyncedInstant() {
+        // Arrange
+        when(anchorService.currentAnchorSet()).thenReturn(TrustAnchorSet.neverSynced());
+        when(entityService.list(TENANT)).thenReturn(List.of());
+
+        // Act
+        PublishedSnapshot published = service.publishFor(TENANT);
+        TrustSnapshot snapshot = capturedSnapshot();
+
+        // Assert
+        assertThat(snapshot.officialTrustStale()).isTrue();
+        assertThat(snapshot.officialTrustLastSyncedAt()).isNull();
+        assertThat(snapshot.anchors()).isEmpty();
+        assertThat(published.signedDocument()).isEqualTo("header.payload.signature");
+    }
+
+    // --- AC-07: publishes even when both sources are empty ----------------------------------
+
+    @Test
+    void publishFor_BothSourcesEmpty_PublishesSignedAndVersioned() {
+        // Arrange
+        when(anchorService.currentAnchorSet()).thenReturn(TrustAnchorSet.neverSynced());
+        when(entityService.list(TENANT)).thenReturn(List.of());
+
+        // Act
+        PublishedSnapshot published = service.publishFor(TENANT);
+        TrustSnapshot snapshot = capturedSnapshot();
+
+        // Assert
+        assertThat(published.version()).isEqualTo(1L);
+        assertThat(published.signedDocument()).isNotBlank();
+        assertThat(snapshot.anchors()).isEmpty();
+        assertThat(snapshot.entities()).isEmpty();
+    }
+
+    // --- EC-02: tenant with no private entities still gets the (global) anchors -------------
+
+    @Test
+    void publishFor_TenantWithNoPrivateEntities_PublishesWithEmptyEntitiesAndPresentAnchors() {
+        // Arrange
+        TrustAnchor anchor = anchor();
+        when(anchorService.currentAnchorSet()).thenReturn(new TrustAnchorSet(List.of(anchor), NOW));
+        when(entityService.list(TENANT)).thenReturn(List.of());
+
+        // Act
+        service.publishFor(TENANT);
+        TrustSnapshot snapshot = capturedSnapshot();
+
+        // Assert
+        assertThat(snapshot.entities()).isEmpty();
+        assertThat(snapshot.anchors()).containsExactly(anchor);
+    }
+
+    // --- EC-05: an entity outside its validity window still travels, unfiltered -------------
+
+    @Test
+    void publishFor_EntityOutsideValidityWindow_TravelsInTheSnapshotUnfiltered() {
+        // Arrange
+        TrustedEntity expiredEntity = new TrustedEntity(TENANT, "VATES-B2", "Expired SL",
+                Set.of(EntityRole.RELYING_PARTY), "pem", NOW.minusSeconds(7200), NOW.minusSeconds(3600));
+        when(anchorService.currentAnchorSet()).thenReturn(new TrustAnchorSet(List.of(), NOW));
+        when(entityService.list(TENANT)).thenReturn(List.of(expiredEntity));
+
+        // Act
+        service.publishFor(TENANT);
+        TrustSnapshot snapshot = capturedSnapshot();
+
+        // Assert
+        assertThat(snapshot.entities()).containsExactly(expiredEntity);
+        assertThat(expiredEntity.isActiveAt(NOW)).isFalse();
+    }
+
+    // --- ES-03: a failure while building or signing must not advance the published version --
+
+    @Test
+    void publishFor_SignerThrows_PropagatesWithoutAdvancingPublishedVersion() {
+        // Arrange
+        when(anchorService.currentAnchorSet()).thenReturn(new TrustAnchorSet(List.of(), NOW));
+        when(entityService.list(TENANT)).thenReturn(List.of());
+        when(signer.sign(any(TrustSnapshot.class))).thenThrow(new IllegalStateException("signing key unavailable"));
+
+        // Act & Assert
+        assertThatThrownBy(() -> service.publishFor(TENANT))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("signing key unavailable");
+
+        verify(publishedSnapshotRepository, never()).replaceIfVersionIs(eq(TENANT), anyLong(), any());
     }
 }
