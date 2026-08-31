@@ -21,9 +21,11 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
@@ -260,5 +262,90 @@ class TrustRegistryEndToEndTest {
         } finally {
             executor.shutdown();
         }
+    }
+
+    /**
+     * <b>NFR-P-228-01</b> requires a p95 below 300 ms for {@code GET} of an unchanged snapshot,
+     * measured in production. This test does <b>not</b> attempt to prove that threshold in
+     * production conditions: it cannot. {@code TestRestTemplate} against an in-process {@code
+     * @SpringBootTest} on {@code RANDOM_PORT} has no network hop, no TLS termination, no load
+     * balancer and no concurrent production traffic — round-trips here are dominated by loopback
+     * and JVM overhead, not by anything the threshold is actually gating. Same caveat {@code
+     * TrustListSyncIT}'s {@code
+     * synchronise_MixedLotlAgainstFixtures_CompletesWellWithinAFixtureScaleRegressionBoundNfrP01}
+     * (task 15b) already states explicitly for its own NFR: fixture/loopback measurement is a
+     * regression guard, not a substitute for production-scale validation ({@code
+     * technical-design.md} &sect;3.7.2).
+     *
+     * <p>What this test <i>does</i> assert is that, once a snapshot is published and its
+     * fingerprint stops changing (AD-1 never re-signs), repeated {@code GET}s stay fast and
+     * bounded — a regression that made every request re-derive or re-sign the snapshot (breaking
+     * AD-1's "identical fingerprint never re-signs" structurally, e.g. by
+     * {@link SnapshotVersionResolver} calling the signer speculatively) would show up here as a
+     * clearly elevated p95, well before it could be measured in a real deployment.
+     */
+    @Test
+    void snapshot_RepeatedRequestsUnchangedContent_P95StaysWellBelowTheProductionThresholdNfrP01() {
+        // Given a tenant with a snapshot already published and stable (no source change between
+        // requests, so every request after the first hits the AD-1 "identical fingerprint"
+        // fast path — no signing operation)
+        String tenant = "tenant-nfr-p01";
+        provision(tenant, "VATES-NFR-P01", EntityRole.RELYING_PARTY);
+        fetchSnapshot(tenant); // warm-up: first publication actually signs
+
+        // When the same snapshot is requested repeatedly
+        int sampleSize = 50;
+        List<Long> latenciesMillis = new ArrayList<>(sampleSize);
+        for (int i = 0; i < sampleSize; i++) {
+            long start = System.nanoTime();
+            ResponseEntity<String> response = fetchSnapshot(tenant);
+            long elapsedMillis = (System.nanoTime() - start) / 1_000_000;
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+            latenciesMillis.add(elapsedMillis);
+        }
+
+        // Then the p95 stays comfortably under the 300 ms production threshold — see Javadoc
+        // above for why this loopback measurement is a regression guard, not a production proof
+        List<Long> sorted = latenciesMillis.stream().sorted().toList();
+        long p95IndexInclusive = Math.round(sorted.size() * 0.95) - 1;
+        long p95Millis = sorted.get((int) Math.max(0, p95IndexInclusive));
+
+        assertThat(p95Millis)
+                .as("fixture/loopback p95 latency (regression guard for NFR-P-228-01, not a proof "
+                        + "of the production threshold)")
+                .isLessThan(300L);
+    }
+
+    /**
+     * <b>NFR-P-228-02</b>: the lightweight version check must be sensibly cheaper than a full
+     * download — bytes transferred, less than 5&nbsp;% of the complete snapshot. {@code AD-4}
+     * resolves this with plain HTTP conditional requests: a {@code 304 Not Modified} carries no
+     * body at all ({@link org.springframework.http.HttpStatus#NOT_MODIFIED}, RFC 9110 &sect;15.4.5),
+     * which is not merely under 5&nbsp;% of the full snapshot — it is exactly 0&nbsp;%. This test
+     * asserts that literally, rather than asserting a ratio that would be trivially satisfied by
+     * construction: comparing byte counts is what proves the mechanism is what it claims to be,
+     * not an assumption about it.
+     */
+    @Test
+    void signedSnapshot_VersionCheckResponseBody_IsUnder5PercentOfTheFullSnapshotNfrP02() {
+        // Given a tenant with a published snapshot
+        String tenant = "tenant-nfr-p02";
+        provision(tenant, "VATES-NFR-P02", EntityRole.RELYING_PARTY);
+        ResponseEntity<String> fullSnapshot = fetchSnapshot(tenant);
+        String fullSnapshotBody = Objects.requireNonNull(fullSnapshot.getBody(), "full snapshot body must not be null");
+        int fullSnapshotBytes = fullSnapshotBody.getBytes(StandardCharsets.UTF_8).length;
+
+        // When a consumer checks its already-cached version instead of downloading again
+        ResponseEntity<String> versionCheck = rest.exchange(
+                "/trust/v1/snapshot", HttpMethod.GET,
+                headers(tenant, fullSnapshot.getHeaders().getETag()), String.class);
+        String versionCheckBody = versionCheck.getBody();
+        int versionCheckBytes = versionCheckBody == null
+                ? 0
+                : versionCheckBody.getBytes(StandardCharsets.UTF_8).length;
+
+        // Then the version check transfers under 5 % of the full snapshot's bytes — here, 0 bytes
+        assertThat(versionCheck.getStatusCode()).isEqualTo(HttpStatus.NOT_MODIFIED);
+        assertThat(versionCheckBytes).isLessThan((int) Math.ceil(fullSnapshotBytes * 0.05));
     }
 }
