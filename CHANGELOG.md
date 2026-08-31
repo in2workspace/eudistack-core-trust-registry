@@ -71,6 +71,51 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   fixture-scale regression guard, not a scaled proof of the production threshold (<10 min
   against ~27 real national lists) — proportional scaling from a 4-pointer local-fixture set
   to real EU infrastructure has no defensible basis.
+- `SnapshotFingerprint` (EUD-228, `AC-05`): a stable, deterministic digest of the official
+  anchors, the tenant's private entities and the trust profile — every collection sorted into a
+  canonical order before hashing, so the version resolver can tell "the content genuinely
+  changed" from "the same content read in a different order," which was the root cause of the
+  scaffolded snapshot's version advancing on every request.
+- `SnapshotVersionResolver` (EUD-228, `AC-05`, `EC-03`): the isolated versioning policy — an
+  unchanged fingerprint returns the previous publication untouched, without invoking the
+  snapshot factory or the signer at all; a changed fingerprint seals `previous version + 1` and
+  persists it via a compare-and-swap, with a single retry if a concurrent writer won the race in
+  between (`RC-1`), surfacing `SnapshotPublicationConflictException` if the retry also
+  conflicts.
+- `KeystoreSnapshotSigningKeyProvider` (EUD-228, `ES-01`, `NFR-S-228-01`): loads and validates
+  the snapshot signing key pair from an injected PKCS#12 keystore while the `@Configuration`
+  bean is constructed, never lazily — a missing, unreadable, or wrongly-credentialed keystore
+  now aborts application startup instead of surfacing as a failure on the first publication
+  request.
+- `FileSystemPublishedSnapshotRepository` (EUD-228, `AC-05`, `EC-03`, `EC-04`, `NFR-R-228-01`):
+  persists the last snapshot published per tenant on the same disk-cache volume the anchor sync
+  already uses for offline startup — one JSON document per tenant, atomic rename on write, and a
+  per-tenant in-process lock closing the compare-and-swap's read-compare-write race window under
+  this service's accepted single-instance scope (`AD-3`).
+- `TrustSnapshotController` (EUD-228, `AC-02`, `AC-06`, `ES-02`, `ES-04`, `ES-05`, `AD-6`):
+  `X-Tenant` is now mandatory (`400` if missing or blank, no default tenant); `GET
+  /trust/v1/snapshot` supports `ETag`/`If-None-Match` for a lightweight version check (`304`, no
+  body, when the caller's version is still current); `GET /trust/v1/snapshot/plain` is retired
+  outside the `DEVELOPMENT` trust profile, responding `404` rather than `403` so a
+  non-development deployment does not confirm the route exists; `GET /trust/v1/jwks` now
+  consumes `SnapshotVerificationMaterialPort` instead of the concrete signer adapter directly.
+- `SnapshotPublicationMetrics` (EUD-228, `NFR-O-228-01`): Micrometer gauges
+  `trust_registry.snapshot.published_version` and `trust_registry.snapshot.official_trust_stale`,
+  both tagged by `tenant`, registered lazily on first publication and updated on every
+  subsequent one — same pattern `TrustAnchorSyncScheduler` already established for `EUD-227`'s
+  sync metrics, behind a new `SnapshotPublicationObserverPort` so the application layer never
+  depends on the Micrometer adapter directly.
+- `TrustSnapshotRestartIT` (EUD-228, task 22, `EC-04`, `NFR-R-228-01`): a container test proving
+  a published version and its cached signature survive a real process restart — two separate
+  container instances sharing the same host-bound cache directory, since Testcontainers has no
+  first-class "stop and restart the same instance" operation.
+- `TrustRegistryEndToEndTest` (EUD-228, tasks 18-23): extended to cover `AC-01` (both sources
+  combined through the real HTTP layer), `AC-03` (version/generation/profile present in the
+  actual signed payload), `AC-06` (`ETag`/`If-None-Match` over the real API), `AC-08` (a change
+  in one tenant leaves another tenant's version untouched), `EC-03` (eight concurrent requests
+  for one tenant with no source change return the same version and the same signed document
+  byte-for-byte), and `NFR-P-228-01`/`NFR-P-228-02` (fixture-scale timing and response-size
+  regression guards, explicitly not production-scale proofs).
 
 ### Changed
 
@@ -99,6 +144,22 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `SyncOutcome` (EUD-227, `EC-02`) now carries `listsWithStaleNextUpdate`: lists accepted despite
   a next-update date already in the past are still visible on the outcome, not only via log,
   closing the `TD-01` gap ahead of `NFR-O-227-01`'s dashboard requirement.
+- **Breaking:** `TrustSnapshotService.publishFor(String)` (EUD-228, `AC-01`, `AC-03`, `AC-04`,
+  `AC-05`, `AC-07`, `AC-08`, `EC-01`, `EC-02`, `EC-05`, `ES-03`) is rewritten end to end: the
+  published version is now derived from a content fingerprint via `SnapshotVersionResolver`
+  instead of an `AtomicLong` incremented on every request, it consumes the `TrustAnchorSet`
+  vigente completo (not just `List<TrustAnchor>`, closing the gap where `officialTrustStale`
+  never reached the published document) and it signs only when the fingerprint actually changed.
+  `build(String)` is removed — `PublishedSnapshot` stores only the signed document, so there is
+  no unsigned "current snapshot" to hand back once a version has been resolved.
+- **Breaking:** `JwsSnapshotSigner` (EUD-228, `AD-2`, `ES-01`, `NFR-S-228-01`) no longer
+  generates an ephemeral ES256 key pair in `@PostConstruct` — `generateEphemeralKey()` is
+  removed. The signing key now comes exclusively from `KeystoreSnapshotSigningKeyProvider`,
+  injected non-exportable material, never regenerated at runtime, so a cached snapshot's
+  signature keeps verifying across a process restart.
+- `TrustSnapshot` (EUD-228, `AC-03`, `AC-04`) gains `trustProfile`, `officialTrustStale` and
+  `officialTrustLastSyncedAt` (nullable — distinguishing "never synchronised" from "synchronised
+  to an empty, dated result").
 
 ### Fixed
 
@@ -135,3 +196,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   national TL URL, no build misconfiguration required. Found via `/code-review` (security
   screen), independently re-derived against DSS 6.4's own `ProspectiveCertificateChainCheck`
   source before being fixed.
+- `./gradlew test`/`check` (EUD-228) now wire the disposable dev-only signing keystore and a
+  `build/`-relative cache directory into the `test` Gradle task, mirroring what `compose.yaml`
+  already provides for the Docker path. `application.yaml` deliberately has no default for the
+  signing material (`ES-01`), which meant every `@SpringBootTest` failed at context startup
+  outside Docker unless those variables were exported manually first — this fix makes
+  `./gradlew clean check` fully reproducible in a clean shell with no manual steps, without
+  touching `application.yaml`'s "no default" contract for production.
