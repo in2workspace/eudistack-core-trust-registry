@@ -82,6 +82,12 @@ centralised; **evaluation stays distributed**.
 | `AD-14` | An anchor set that fails to synchronise, entirely, keeps its previous instant and anchors instead of stamping a new "synced" instant on an empty result | A wholly failed attempt (no anchors, at least one rejection) is not a successful empty sync; conflating the two broke the never-synced/synced-and-stale distinction the set exists to preserve (`EC-04`) |
 | `AD-15` | The official signing-certificate keystore is loaded and parsed while the `@Configuration` bean is constructed, not lazily on first sync | A service that starts without being able to verify anything would silently serve unverifiable trust; failing at startup surfaces the problem immediately instead of on the next scheduled sync (`ES-01`) |
 | `AD-16` | `DssOfficialTrustListAdapter` reads `TLValidationJob.getSummary()` (per-list download/parsing/validation info), never `TrustedListsCertificateSource` | The certificate source exists only so DSS keeps itself internally in sync; the per-list summary is the only place that carries the download/signature outcome `SyncOutcome` needs to report rejections |
+| `AD-17` | The published snapshot's version is derived from a content fingerprint, not a per-request counter | A counter incremented on every request satisfies neither half of "monotonic and only changes with the sources" — `EUD-228/technical-design.md` AD-1 |
+| `AD-18` | The snapshot signing key is injected external material (PKCS#12 keystore, non-exportable), loaded and validated eagerly at startup; qualified sealing via a QTSP is deferred | Closes the "ephemeral key regenerated per process" gap from §6 without building infrastructure this service does not have yet — the port is shaped to admit a QTSP adapter later without touching domain/application. **Debt against `AD-11`** below, tracked in `EUD-228/tech-debt.md` — `EUD-228/technical-design.md` AD-2 |
+| `AD-19` | Published snapshots persist on the same disk-cache volume the anchor sync already uses for offline startup, one JSON file per tenant, atomic rename on write | No database dependency exists in this service yet (`AD-1`, `AD-2`); reuses infrastructure already proven to survive a restart. **Constrains this service to a single instance** while this persistence choice stands — see §6 — `EUD-228/technical-design.md` AD-3 |
+| `AD-20` | The lightweight version check is `ETag`/`If-None-Match` over the same `GET /trust/v1/snapshot` endpoint, not a dedicated endpoint | Standard HTTP conditional requests need no new API surface and a `304` carries no body — `EUD-228/technical-design.md` AD-4 |
+| `AD-21` | Official anchors stay global (not tenant-scoped); only the private list and the resulting snapshot are per tenant | The LOTL and national Trusted Lists are identical for every tenant; segregating them would multiply sync work for no isolation gain, since the isolation guarantee (`AD-5` above) is about the private list and the published decision, not the anchors — `EUD-228/technical-design.md` AD-5 |
+| `AD-22` | `GET /trust/v1/snapshot/plain` (unsigned) is retired outside the `DEVELOPMENT` trust profile, responding `404` rather than `403` | Confirms `AD-4`: a non-development deployment does not confirm the route exists at all, closing the "unsigned JSON in production" gap the roadmap in §6 used to list — `EUD-228/technical-design.md` AD-6 |
 
 ## 3.1 Validation strategy
 
@@ -94,6 +100,8 @@ There is no deployed environment for this service yet, and there will not be one
 As stories land, this is where their infrastructure gets covered: a container serving Trusted List fixtures for the LOTL synchronisation, and a PostgreSQL container once persistence replaces the in-memory adapters.
 
 `EUD-227` added the first of those: `TrustListSyncIT` (`integrationTest`, tag `container`) boots the packaged image against a second `nginx:alpine` container serving signed TSL/LOTL fixtures over a shared Docker network (the fixtures' cross-references are hostnames baked into already-signed XML, so they only resolve between containers, never from a host JVM). It is also what caught the two real DSS wiring defects below — both invisible to unit tests, which mock `TLValidationJob` rather than exercising the real pipeline.
+
+`EUD-228` added the equivalent for snapshot publication. `TrustSnapshotRestartIT` (`integrationTest`, tag `container`) proves `AD-19`/`AD-18` together — a published version and its cached signature must survive a real process boundary — by starting two separate container instances against the same host-bound cache directory, since Testcontainers has no first-class "stop and restart the same instance" operation. `TrustRegistryEndToEndTest` was extended to combine both sources through the real HTTP layer (not just unit-mocked), exercise the `ETag`/`If-None-Match` conditional-request mechanics of `AD-20` against the real API, and give `NFR-P-228-01`/`NFR-P-228-02` a fixture-scale regression guard — explicitly not a production-scale proof, for the same reason the timing test in §3.3 below is not one either.
 
 ## 3.2 Where trust changes come from
 
@@ -140,13 +148,34 @@ the use cases, `infrastructure/` the adapters. The dependency rule is enforced b
 
 ## 6. Roadmap
 
-Persistence is in memory and the signing key is ephemeral; both are still scaffolding. The
-official-anchor side is no longer a stub. In order:
+Snapshot publication is no longer scaffolding either — file-backed persistence and an injected,
+non-exportable signing key replaced the ephemeral in-memory version and the `@PostConstruct`
+key. Two things remain genuinely open, both flagged where they originate rather than smoothed
+over:
+
+- **Single-instance constraint (`AD-19`).** File-based persistence on a local disk-cache volume
+  means two replicas of this service, each with its own volume, would each seal their own
+  version sequence for the same tenant — the monotonicity guarantee only holds today because
+  nothing runs more than one instance. Moving persistence to a shared store (PostgreSQL, the
+  same direction `US-03` already needs for the private list) removes this constraint as a side
+  effect, not as a dedicated piece of work.
+- **Qualified sealing (`AD-11`) is still not real.** The signing key behind `AD-18` is injected,
+  non-exportable material — a real improvement over an ephemeral key — but it is not the
+  qualified electronic seal from a QTSP that `AD-11` commits to for the private LoTE. Tracked as
+  debt in `EUD-228/tech-debt.md`, not presented as resolved here.
+
+In order:
 
 1. ~~`US-01` — DSS synchronisation of LOTL and national Trusted Lists, with offline cache.~~
    Done (`EUD-227`): see §3.1 and §3.3 for the container test that validates it and the
    risks it surfaced.
-2. `US-02` — Snapshot persistence and production key custody (KMS), published JWKS.
-3. `US-03` — Private list persisted per tenant, with admin API and audit trail.
+2. ~~`US-02` — Snapshot persistence and versioning, signing key custody, published JWKS.~~
+   Done (`EUD-228`): file-backed persistence (`AD-19`), content-derived versioning (`AD-17`),
+   injected signing key (`AD-18`) and the HTTP conditional-request check (`AD-20`) — see §3.1
+   for the container/end-to-end tests that validate it. **Not** done: qualified sealing via a
+   QTSP (`AD-11`, still open) and multi-instance persistence (tied to the single-instance
+   constraint above).
+3. `US-03` — Private list persisted per tenant, with admin API and audit trail. The natural
+   place to also remove the single-instance constraint above, if it lands on shared storage.
 4. `US-04` to `US-06` — JVM client module, then migration of Verifier, Issuer and proximity
    validator off their own lists.

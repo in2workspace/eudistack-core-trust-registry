@@ -34,9 +34,13 @@ the critical path of every credential presentation. That is what keeps the Verif
 offline proximity validator usable. The reasoning is in [docs/architecture.md](docs/architecture.md).
 
 > **Status: partial.** Official-anchor synchronisation (EU LOTL + national Trusted Lists, via DSS)
-> is implemented, including offline-cache startup and scheduled online refresh. Persistence is
-> still in memory and the signing key is still generated at startup. See the roadmap in
-> [docs/architecture.md](docs/architecture.md#6-roadmap).
+> and signed, versioned snapshot publication are both implemented, including offline-cache
+> startup, scheduled online refresh, file-backed snapshot persistence and an injected (non-
+> ephemeral) signing key. Two things remain open: this service is restricted to a **single
+> instance** while snapshot persistence stays file-based, and the signing key is not yet a
+> qualified electronic seal from a QTSP. See the roadmap in
+> [docs/architecture.md](docs/architecture.md#6-roadmap) and
+> [`EUD-228/tech-debt.md`](https://github.com/in2workspace/eudistack-platform-dev/blob/main/docs/EUD-34-trust-framework/EUD-228/tech-debt.md).
 
 ## Who consumes it
 
@@ -63,9 +67,9 @@ implementation, rather than a hand-rolled PKIX layer.
 
 | Method | Path | Purpose |
 |--------|------|---------|
-| `GET` | `/trust/v1/snapshot` | Signed snapshot (JWS) for the calling tenant |
-| `GET` | `/trust/v1/snapshot/plain` | Unsigned snapshot, troubleshooting only |
-| `GET` | `/trust/v1/jwks` | Keys needed to verify a snapshot |
+| `GET` | `/trust/v1/snapshot` | Signed snapshot (JWS) for the calling tenant. `X-Tenant` is mandatory (`400` if missing/blank); supports `If-None-Match`/`ETag` for a lightweight version check (`304`, no body, if the caller's version is still current) |
+| `GET` | `/trust/v1/snapshot/plain` | Unsigned snapshot, troubleshooting only. **`DEVELOPMENT` trust profile only** — `404` everywhere else, not `403`, so a non-development deployment does not confirm the route exists |
+| `GET` | `/trust/v1/jwks` | Keys needed to verify a snapshot signature — public material only |
 | `GET` | `/trust/v1/entities` | Private list of the given tenant |
 | `GET` | `/trust/v1/entities/{organizationIdentifier}/trusted?role=` | Point check |
 
@@ -84,9 +88,17 @@ docker compose up --build      # http://localhost:8085
 ```
 
 `TRUST_REGISTRY_CACHE_DIR` defaults to `/var/cache/trust-registry`, which only exists inside the
-container. Running outside Docker (`bootRun`, or `./gradlew test`/`check` on a bare host shell),
-point it at a writable local directory, e.g. `TRUST_REGISTRY_CACHE_DIR=/tmp/trust-registry-cache`,
-or the application fails to start with `IllegalStateException`.
+container; `./gradlew test`/`check` already point it at a `build/`-relative directory for you
+(see `build.gradle`'s `test` task), so no manual override is needed for those. `bootRun`, or any
+other invocation outside Docker/Gradle, still needs it pointed at a writable local directory
+(e.g. `TRUST_REGISTRY_CACHE_DIR=/tmp/trust-registry-cache`), or the application fails to start
+with `IllegalStateException`.
+
+The three signing-material variables below (`TRUST_REGISTRY_SIGNING_*`) have **no default on
+purpose** (`ES-01`): a deployment that forgets them must fail to bind, never fall back to a
+bundled key. `./gradlew test`/`check` also supply a disposable dev-only keystore for you;
+`bootRun` and `docker compose up` need them set explicitly — `compose.yaml` already does this
+for the Docker path.
 
 ## Configuration
 
@@ -100,6 +112,17 @@ or the application fails to start with `IllegalStateException`.
 | `TRUST_REGISTRY_MAX_AGE` | `PT24H` | Maximum age a successful synchronisation may reach before the anchor set is flagged stale; the set is kept, never emptied, past this age (`AC-06`) |
 | `TRUST_REGISTRY_SYNC_INITIAL_DELAY` | `PT10S` | Delay after startup before the first scheduled online refresh |
 | `TRUST_REGISTRY_SYNC_INTERVAL` | `PT6H` | Interval between scheduled online refreshes thereafter |
+| `TRUST_REGISTRY_SIGNING_KEYSTORE_PATH` | **none** | PKCS#12 keystore holding the non-exportable snapshot signing key pair, loaded and validated at startup (`ES-01`) — never generated at runtime |
+| `TRUST_REGISTRY_SIGNING_KEYSTORE_PASSWORD` | **none** | Password for the keystore above (also used to unlock the key entry) |
+| `TRUST_REGISTRY_SIGNING_KEY_ALIAS` | **none** | Alias of the EC (P-256) key entry to sign snapshots with |
+| `TRUST_REGISTRY_TRUST_PROFILE` | `PRODUCTION` | Trust profile this deployment publishes snapshots under (`AC-03`). `DEVELOPMENT` is the only value that exposes `GET /trust/v1/snapshot/plain` — the strict default (`PRODUCTION`) means a misconfigured deployment fails safe, never fails open |
+
+> **Single instance only.** Published snapshots persist on the local disk-cache volume
+> (`docs/architecture.md` `AD-19`), the same one `TRUST_REGISTRY_CACHE_DIR` already points at for
+> the anchor sync. Running two replicas, each with its own volume, would let each seal its own
+> version sequence for the same tenant, breaking the "monotonic version, only changes with the
+> sources" guarantee (`AC-05`). Do not scale this service horizontally until persistence moves to
+> shared storage — see the roadmap in [docs/architecture.md](docs/architecture.md#6-roadmap).
 
 ## Observability
 
