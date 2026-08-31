@@ -12,6 +12,7 @@ import es.in2.trustregistry.snapshot.domain.model.PublishedSnapshot;
 import es.in2.trustregistry.snapshot.domain.model.TrustProfile;
 import es.in2.trustregistry.snapshot.domain.model.TrustSnapshot;
 import es.in2.trustregistry.snapshot.domain.port.PublishedSnapshotRepositoryPort;
+import es.in2.trustregistry.snapshot.domain.port.SnapshotPublicationObserverPort;
 import es.in2.trustregistry.snapshot.domain.port.SnapshotSignerPort;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -70,6 +71,9 @@ class TrustSnapshotServiceTest {
     @Mock
     private PublishedSnapshotRepositoryPort publishedSnapshotRepository;
 
+    @Mock
+    private SnapshotPublicationObserverPort publicationObserver;
+
     private TrustSnapshotService service;
 
     @BeforeEach
@@ -83,7 +87,7 @@ class TrustSnapshotServiceTest {
                         "snapshot-test-password", "snapshot-signing"),
                 TrustProfile.PRODUCTION);
         service = new TrustSnapshotService(anchorService, entityService, signer, properties,
-                Clock.fixed(NOW, ZoneOffset.UTC), publishedSnapshotRepository);
+                Clock.fixed(NOW, ZoneOffset.UTC), publishedSnapshotRepository, publicationObserver);
 
         lenient().when(publishedSnapshotRepository.findByTenant(TENANT)).thenReturn(Optional.empty());
         lenient().when(publishedSnapshotRepository.replaceIfVersionIs(eq(TENANT), anyLong(), any(PublishedSnapshot.class)))

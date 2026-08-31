@@ -10,6 +10,7 @@ import es.in2.trustregistry.snapshot.domain.model.SnapshotFingerprint;
 import es.in2.trustregistry.snapshot.domain.model.TrustProfile;
 import es.in2.trustregistry.snapshot.domain.model.TrustSnapshot;
 import es.in2.trustregistry.snapshot.domain.port.PublishedSnapshotRepositoryPort;
+import es.in2.trustregistry.snapshot.domain.port.SnapshotPublicationObserverPort;
 import es.in2.trustregistry.snapshot.domain.port.SnapshotSignerPort;
 import org.springframework.stereotype.Service;
 
@@ -46,19 +47,22 @@ public class TrustSnapshotService {
     private final TrustRegistryProperties properties;
     private final Clock clock;
     private final SnapshotVersionResolver versionResolver;
+    private final SnapshotPublicationObserverPort publicationObserver;
 
     public TrustSnapshotService(TrustAnchorSyncService anchorService,
                                 TrustedEntityService entityService,
                                 SnapshotSignerPort signer,
                                 TrustRegistryProperties properties,
                                 Clock clock,
-                                PublishedSnapshotRepositoryPort publishedSnapshotRepository) {
+                                PublishedSnapshotRepositoryPort publishedSnapshotRepository,
+                                SnapshotPublicationObserverPort publicationObserver) {
         this.anchorService = anchorService;
         this.entityService = entityService;
         this.signer = signer;
         this.properties = properties;
         this.clock = clock;
         this.versionResolver = new SnapshotVersionResolver(publishedSnapshotRepository);
+        this.publicationObserver = publicationObserver;
     }
 
     /**
@@ -90,7 +94,7 @@ public class TrustSnapshotService {
 
         SnapshotFingerprint fingerprint = SnapshotFingerprint.of(anchorSet, entities, trustProfile);
 
-        return versionResolver.resolve(
+        PublishedSnapshot published = versionResolver.resolve(
                 tenantId,
                 fingerprint,
                 version -> new TrustSnapshot(
@@ -104,6 +108,9 @@ public class TrustSnapshotService {
                         officialTrustStale,
                         officialTrustLastSyncedAt),
                 signer::sign);
+
+        publicationObserver.recordPublication(tenantId, published.version(), officialTrustStale);
+        return published;
     }
 
     /** The compact JWS a consumer verifies offline — the signed document of {@link #publishFor}. */
