@@ -19,6 +19,8 @@ import es.in2.trustregistry.snapshot.domain.model.SnapshotFingerprint;
 import es.in2.trustregistry.snapshot.domain.model.TrustProfile;
 import es.in2.trustregistry.snapshot.domain.port.SnapshotVerificationMaterialPort;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -26,6 +28,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.List;
 
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -75,6 +78,59 @@ class TrustSnapshotControllerTest {
         // Act & Assert
         mockMvc.perform(get("/trust/v1/snapshot").header("X-Tenant", "   "))
                 .andExpect(status().isBadRequest());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "ACME",              // uppercase — collides with "acme" on case-insensitive filesystems
+            "-acme",             // must start with an alphanumeric, not a separator
+            "acme/../other",     // classic traversal — the allowlist rejects the "/" alone; fileFor()
+            "acme\\other",       // in FileSystemPublishedSnapshotRepository keeps its own denylist
+            "acme with spaces",  // as defence in depth, unchanged by this fix
+            "acmeé",             // non-ASCII (unicode confusable / normalisation risk)
+    })
+    void signedSnapshot_TenantHeaderFailsTheAllowlist_RejectsWithBadRequestWithoutCallingTheService(String invalidTenant)
+            throws Exception {
+        // Arrange — quality-report.md S1/TD-03: the allowlist is enforced once, here, before the
+        // tenant value can reach FileSystemPublishedSnapshotRepository or any other adapter.
+        //
+        // Not covered here on purpose: "a..b" (consecutive dots, no slash) is syntactically valid
+        // under this allowlist — "." is one of the permitted separator characters and the regex
+        // does not forbid repeating it — so it is not an allowlist gap. It is still rejected
+        // end-to-end because FileSystemPublishedSnapshotRepository.fileFor() denylists any
+        // tenantId containing "..", the defence-in-depth check this fix deliberately keeps rather
+        // than replaces; that adapter-level guard has its own test file (W3/TD-08 tracks the gap
+        // in direct coverage for it, out of scope for this fix).
+
+        // Act & Assert
+        mockMvc.perform(get("/trust/v1/snapshot").header("X-Tenant", invalidTenant))
+                .andExpect(status().isBadRequest());
+        verify(service, never()).publishFor(invalidTenant);
+    }
+
+    @Test
+    void signedSnapshot_TenantHeaderIsSixtyFiveCharacters_RejectsWithBadRequest() throws Exception {
+        // Arrange — length bound: the allowlist caps at 64 characters, closing S3's unbounded-key
+        // amplification alongside S1's charset/case gap.
+        String tooLong = "a".repeat(65);
+
+        // Act & Assert
+        mockMvc.perform(get("/trust/v1/snapshot").header("X-Tenant", tooLong))
+                .andExpect(status().isBadRequest());
+        verify(service, never()).publishFor(tooLong);
+    }
+
+    @Test
+    void signedSnapshot_TenantHeaderHasDotsAndHyphens_IsAcceptedByTheAllowlist() throws Exception {
+        // Arrange — the allowlist must not be so strict it rejects legitimate tenant slugs that
+        // use the separators it explicitly permits (._-).
+        String tenant = "cgcom.demo-1";
+        when(service.publishFor(tenant)).thenReturn(published(1L, "cgcom.demo-1.payload.signature"));
+
+        // Act & Assert
+        mockMvc.perform(get("/trust/v1/snapshot").header("X-Tenant", tenant))
+                .andExpect(status().isOk())
+                .andExpect(content().string("cgcom.demo-1.payload.signature"));
     }
 
     @Test

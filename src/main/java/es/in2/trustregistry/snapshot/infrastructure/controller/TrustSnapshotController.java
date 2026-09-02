@@ -22,6 +22,7 @@ import java.text.ParseException;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Pattern;
 
 /**
  * Consumer-facing API: what the Verifier, the Issuer and the wallets read.
@@ -63,6 +64,21 @@ import java.util.Map;
 @RestController
 @RequestMapping("/trust/v1")
 public class TrustSnapshotController {
+
+    /**
+     * Allowlist for {@code X-Tenant} ({@code quality-report.md} S1, {@code tech-debt.md} TD-03):
+     * lower-case alphanumeric, {@code . _ -}, must start with an alphanumeric, at most 64 chars.
+     * Enforced once, here, before the tenant value reaches any adapter — {@link
+     * es.in2.trustregistry.snapshot.infrastructure.adapter.persistence.FileSystemPublishedSnapshotRepository#fileFor}
+     * keeps its own traversal denylist as defence in depth, but this allowlist is what actually
+     * bounds the reachable key space: two tenant strings that only differ by case or unicode
+     * normalisation can no longer collide on a case-insensitive or NFD-normalising filesystem,
+     * because neither survives this check unless already normalised to the one canonical form it
+     * allows. Also bounds the per-tenant state {@code SnapshotPublicationMetrics} and {@code
+     * FileSystemPublishedSnapshotRepository.tenantLocks} accumulate (S3/TD-05) to this same
+     * finite, ASCII, length-capped key space.
+     */
+    private static final Pattern VALID_TENANT = Pattern.compile("^[a-z0-9][a-z0-9._-]{0,63}$");
 
     private final TrustSnapshotService service;
     private final SnapshotVerificationMaterialPort verificationMaterial;
@@ -123,6 +139,9 @@ public class TrustSnapshotController {
     private static void requireTenant(String tenantId) {
         if (tenantId == null || tenantId.isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "X-Tenant header is required");
+        }
+        if (!VALID_TENANT.matcher(tenantId).matches()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "X-Tenant header is not a valid tenant identifier");
         }
     }
 
