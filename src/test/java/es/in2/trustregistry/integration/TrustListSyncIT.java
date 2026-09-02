@@ -65,6 +65,9 @@ class TrustListSyncIT {
             Path.of("src/test/resources/fixtures/tsl").toAbsolutePath();
     private static final Path TRUSTSTORE_PATH =
             FIXTURES_DIR.resolve("keystore/official-test-truststore.p12");
+    private static final String SIGNING_KEYSTORE_CONTAINER_PATH = "/test-fixtures/dev-signing-keystore.p12";
+    private static final Path SIGNING_KEYSTORE_HOST_PATH = Path.of(
+            "src/test/resources/fixtures/snapshot/keystore/dev-signing-keystore.p12").toAbsolutePath();
 
     private static final ObjectMapper JSON = new ObjectMapper();
 
@@ -112,9 +115,11 @@ class TrustListSyncIT {
                 .withEnv("TRUST_REGISTRY_SYNC_INTERVAL", "PT1H")
                 // EUD-228 (task 15): application.yaml has no default for these three variables
                 // on purpose (ES-01, fail-fast) — the registry needs them to start at all. The
-                // dev-only keystore bundled on the main classpath (task 15) is safe to reuse
-                // here: this container is discarded per scenario, never a real deployment.
-                .withEnv("TRUST_REGISTRY_SIGNING_KEYSTORE_PATH", "classpath:keystore/dev-signing-keystore.p12")
+                // dev-only keystore is a test fixture (src/test/resources), never bundled into
+                // the production jar (quality-report.md B1), mounted via a host bind since it is
+                // not on the packaged image's classpath. This container is discarded per
+                // scenario, never a real deployment.
+                .withEnv("TRUST_REGISTRY_SIGNING_KEYSTORE_PATH", "file:" + SIGNING_KEYSTORE_CONTAINER_PATH)
                 .withEnv("TRUST_REGISTRY_SIGNING_KEYSTORE_PASSWORD", "dev-signing-password")
                 .withEnv("TRUST_REGISTRY_SIGNING_KEY_ALIAS", "trust-registry-dev")
                 // plainSnapshot(registry) below reads /trust/v1/snapshot/plain, which task 14
@@ -122,6 +127,7 @@ class TrustListSyncIT {
                 // profile's intended diagnostic use case, not a production-representative boot.
                 .withEnv("TRUST_REGISTRY_TRUST_PROFILE", "DEVELOPMENT")
                 .withFileSystemBind(TRUSTSTORE_PATH.toString(), KEYSTORE_CONTAINER_PATH, BindMode.READ_ONLY)
+                .withFileSystemBind(SIGNING_KEYSTORE_HOST_PATH.toString(), SIGNING_KEYSTORE_CONTAINER_PATH, BindMode.READ_ONLY)
                 .withFileSystemBind(cacheDir.toString(), "/var/cache/trust-registry", BindMode.READ_WRITE)
                 .waitingFor(Wait.forHttp("/actuator/health/readiness").forPort(PORT).forStatusCode(200))
                 .withStartupTimeout(Duration.ofMinutes(5));

@@ -197,12 +197,15 @@ tasks.named('test') {
     // silently sign with a bundled key. That is correct for production, but it also means
     // any @SpringBootTest run without them fails at context startup outside Docker, where
     // compose.yaml would otherwise supply them (see docs/EUD-34-trust-framework/EUD-228/
-    // tasks.md, task 17 Notes). This mirrors compose.yaml's disposable dev-only keystore
-    // exactly, scoped to this Gradle task only — it does not touch application.yaml's "no
-    // default" contract, and it has no effect on the packaged jar or the `integrationTest`
-    // task, which already gets its own environment via Testcontainers/compose.yaml (task 15b).
+    // tasks.md, task 17 Notes). This mirrors the disposable dev-only test fixture keystore
+    // (src/test/resources/fixtures/snapshot/keystore — never src/main/resources, see the
+    // quality-report.md B1 fix: a signing keystore packaged into the production jar is a
+    // committed private key), scoped to this Gradle task only — it does not touch
+    // application.yaml's "no default" contract, and it has no effect on the packaged jar or
+    // the `integrationTest` task, which already gets its own environment via
+    // Testcontainers/compose.yaml (task 15b).
     environment(
-            TRUST_REGISTRY_SIGNING_KEYSTORE_PATH: 'classpath:keystore/dev-signing-keystore.p12',
+            TRUST_REGISTRY_SIGNING_KEYSTORE_PATH: 'classpath:fixtures/snapshot/keystore/dev-signing-keystore.p12',
             TRUST_REGISTRY_SIGNING_KEYSTORE_PASSWORD: 'dev-signing-password',
             TRUST_REGISTRY_SIGNING_KEY_ALIAS: 'trust-registry-dev',
             // Disposable, gradle-clean-safe cache directory: /var/cache/trust-registry (the

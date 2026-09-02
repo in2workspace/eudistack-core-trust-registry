@@ -48,3 +48,15 @@ docker/.env
 # mistakes it for the real deployment artifact (that's platform-dev's
 # dev-tools/schemas/, synced via eudistack-platform-iac's efs-files-sync).
 src/main/resources/credentials/profiles/*.json
+
+### Keystores (EUD-228, quality-report.md B1) ###
+# A PKCS#12 keystore under src/main/resources/ is packaged into the production jar
+# (Dockerfile copies build/libs/*.jar). Never commit one that holds a private key —
+# src/main/resources/keystore/oj-keystore.p12 is the sole exception below because it
+# holds only public trustedCertEntry material (the DSS reference OJ keystore, AD-12).
+# Real production signing secrets are injected at deploy time (TRUST_REGISTRY_SIGNING_*),
+# never committed. Test fixtures under src/test/resources/ are throwaway keys explicitly
+# marked "DO NOT USE IN PRODUCTION" and are safe to track.
+*.p12
+!src/main/resources/keystore/oj-keystore.p12
+!src/test/resources/**/*.p12

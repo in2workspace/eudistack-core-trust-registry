@@ -6,6 +6,7 @@ import com.nimbusds.jose.jwk.ECKey;
 import com.nimbusds.jose.jwk.JWKSet;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.testcontainers.containers.BindMode;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.images.builder.ImageFromDockerfile;
@@ -35,6 +36,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 class TrustRegistryImageIT {
 
     private static final int PORT = 8085;
+    private static final String SIGNING_KEYSTORE_CONTAINER_PATH = "/test-fixtures/dev-signing-keystore.p12";
+    private static final Path SIGNING_KEYSTORE_HOST_PATH = Path.of(
+            "src/test/resources/fixtures/snapshot/keystore/dev-signing-keystore.p12").toAbsolutePath();
 
     @Container
     @SuppressWarnings("resource")
@@ -51,11 +55,14 @@ class TrustRegistryImageIT {
             .withEnv("SERVER_PORT", String.valueOf(PORT))
             // EUD-228 (task 15): application.yaml has no default for these three variables on
             // purpose (ES-01, fail-fast) — the packaged image needs them to start at all. The
-            // dev-only keystore bundled on the main classpath (task 15) is safe to reuse here:
-            // this container is discarded per test run, never a real deployment.
-            .withEnv("TRUST_REGISTRY_SIGNING_KEYSTORE_PATH", "classpath:keystore/dev-signing-keystore.p12")
+            // dev-only keystore is a test fixture (src/test/resources), never bundled into the
+            // production jar (quality-report.md B1) — mounted here via a host bind, not
+            // classpath:, since src/test/resources is not on the packaged image's classpath.
+            // This container is discarded per test run, never a real deployment.
+            .withEnv("TRUST_REGISTRY_SIGNING_KEYSTORE_PATH", "file:" + SIGNING_KEYSTORE_CONTAINER_PATH)
             .withEnv("TRUST_REGISTRY_SIGNING_KEYSTORE_PASSWORD", "dev-signing-password")
             .withEnv("TRUST_REGISTRY_SIGNING_KEY_ALIAS", "trust-registry-dev")
+            .withFileSystemBind(SIGNING_KEYSTORE_HOST_PATH.toString(), SIGNING_KEYSTORE_CONTAINER_PATH, BindMode.READ_ONLY)
             .waitingFor(Wait.forHttp("/actuator/health/readiness").forPort(PORT).forStatusCode(200))
             .withStartupTimeout(Duration.ofMinutes(5));
 

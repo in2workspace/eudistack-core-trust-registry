@@ -13,11 +13,14 @@ services:
       SERVER_PORT: 8085
       LOG_LEVEL: DEBUG
       TRUST_REGISTRY_CACHE_DIR: /var/cache/trust-registry
-      # Disposable dev-only signing key, bundled on the main classpath (EUD-228, ES-01/AD-2).
-      # NEVER use in staging/production — application.yaml has no default for these three
-      # variables on purpose, so an environment that forgets to set them fails to start
-      # rather than silently signing with a key anyone with repo read access already has.
-      TRUST_REGISTRY_SIGNING_KEYSTORE_PATH: classpath:keystore/dev-signing-keystore.p12
+      # Disposable dev-only signing key. NEVER use in staging/production —
+      # application.yaml has no default for these three variables on purpose, so an
+      # environment that forgets to set them fails to start rather than silently signing
+      # with a key anyone with repo read access already has. The keystore itself is a test
+      # fixture (src/test/resources, never src/main/resources — quality-report.md B1: a
+      # signing keystore packaged into the production jar is a committed private key) and is
+      # mounted below, outside the image, rather than referenced via classpath:.
+      TRUST_REGISTRY_SIGNING_KEYSTORE_PATH: file:/run/secrets/dev-signing-keystore.p12
       TRUST_REGISTRY_SIGNING_KEYSTORE_PASSWORD: dev-signing-password
       TRUST_REGISTRY_SIGNING_KEY_ALIAS: trust-registry-dev
       # DEVELOPMENT enables the unsigned /snapshot/plain diagnostic endpoint (AD-6). The
@@ -26,6 +29,7 @@ services:
       TRUST_REGISTRY_TRUST_PROFILE: DEVELOPMENT
     volumes:
       - trust-registry-cache:/var/cache/trust-registry
+      - ./src/test/resources/fixtures/snapshot/keystore/dev-signing-keystore.p12:/run/secrets/dev-signing-keystore.p12:ro
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:8085/actuator/health/readiness"]
       interval: 10s

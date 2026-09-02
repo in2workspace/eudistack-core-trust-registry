@@ -54,6 +54,9 @@ class TrustSnapshotRestartIT {
 
     private static final int PORT = 8085;
     private static final String TENANT = "sandbox";
+    private static final String SIGNING_KEYSTORE_CONTAINER_PATH = "/test-fixtures/dev-signing-keystore.p12";
+    private static final Path SIGNING_KEYSTORE_HOST_PATH = Path.of(
+            "src/test/resources/fixtures/snapshot/keystore/dev-signing-keystore.p12").toAbsolutePath();
 
     @SuppressWarnings("resource")
     private static final ImageFromDockerfile REGISTRY_IMAGE = new ImageFromDockerfile()
@@ -67,12 +70,15 @@ class TrustSnapshotRestartIT {
                 .withEnv("SERVER_PORT", String.valueOf(PORT))
                 // EUD-228 (task 15): application.yaml has no default for these three variables on
                 // purpose (ES-01, fail-fast). Same disposable dev-only keystore every other
-                // container test in this Story uses — bundled on the main classpath, safe here
-                // because every container in this test is discarded, never a real deployment.
-                .withEnv("TRUST_REGISTRY_SIGNING_KEYSTORE_PATH", "classpath:keystore/dev-signing-keystore.p12")
+                // container test in this Story uses — a test fixture (src/test/resources), never
+                // bundled into the production jar (quality-report.md B1), mounted via a host bind
+                // since it is not on the packaged image's classpath. Every container in this test
+                // is discarded, never a real deployment.
+                .withEnv("TRUST_REGISTRY_SIGNING_KEYSTORE_PATH", "file:" + SIGNING_KEYSTORE_CONTAINER_PATH)
                 .withEnv("TRUST_REGISTRY_SIGNING_KEYSTORE_PASSWORD", "dev-signing-password")
                 .withEnv("TRUST_REGISTRY_SIGNING_KEY_ALIAS", "trust-registry-dev")
                 .withEnv("TRUST_REGISTRY_CACHE_DIR", "/var/cache/trust-registry")
+                .withFileSystemBind(SIGNING_KEYSTORE_HOST_PATH.toString(), SIGNING_KEYSTORE_CONTAINER_PATH, BindMode.READ_ONLY)
                 // Host-bound, not the container's own VOLUME: the second instance in each test
                 // needs to see exactly what the first instance wrote, which an anonymous volume
                 // scoped to the (discarded) first container would not survive.
