@@ -153,6 +153,34 @@ class TrustSnapshotServiceTest {
         assertThat(snapshot.trustProfile()).isEqualTo(TrustProfile.PRODUCTION);
     }
 
+    @Test
+    void publishFor_PropertiesDeclareStaging_DeclaresTheConfiguredProfileNotAHardcodedDefault() {
+        // Arrange — quality-report.md B2/F2: the shared fixture in setUp() always uses
+        // TrustProfile.PRODUCTION, which cannot distinguish "read from config" from
+        // "hardcoded to the same value as the default" (N2). A distinct profile here is what
+        // actually proves TrustSnapshotService reads properties.trustProfile() rather than a
+        // literal.
+        TrustRegistryProperties stagingProperties = new TrustRegistryProperties(
+                "https://ec.europa.eu/tools/lotl/eu-lotl.xml", "classpath:keystore/oj-keystore.p12",
+                "/var/cache/trust-registry", 86400, MAX_AGE,
+                new TrustRegistryProperties.Sync(Duration.ofSeconds(10), Duration.ofHours(6)),
+                new TrustRegistryProperties.Signing(
+                        "classpath:fixtures/snapshot/keystore/valid-signing-keystore.p12",
+                        "snapshot-test-password", "snapshot-signing"),
+                TrustProfile.STAGING);
+        TrustSnapshotService stagingService = new TrustSnapshotService(anchorService, entityService, signer,
+                stagingProperties, Clock.fixed(NOW, ZoneOffset.UTC), publishedSnapshotRepository, publicationObserver);
+        when(anchorService.currentAnchorSet()).thenReturn(new TrustAnchorSet(List.of(), NOW));
+        when(entityService.list(TENANT)).thenReturn(List.of());
+
+        // Act
+        stagingService.publishFor(TENANT);
+        TrustSnapshot snapshot = capturedSnapshot();
+
+        // Assert
+        assertThat(snapshot.trustProfile()).isEqualTo(TrustProfile.STAGING);
+    }
+
     // --- AC-04 / EC-01: official trust staleness and the never-synced-vs-dated distinction --
 
     @Test

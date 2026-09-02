@@ -90,7 +90,7 @@ public class TrustSnapshotService {
         Instant now = Instant.now(clock);
         boolean officialTrustStale = anchorSet.isStaleAt(now, properties.maxAge());
         Instant officialTrustLastSyncedAt = anchorSet.lastSuccessfulSyncAt();
-        TrustProfile trustProfile = TrustProfile.PRODUCTION;
+        TrustProfile trustProfile = properties.trustProfile();
 
         SnapshotFingerprint fingerprint = SnapshotFingerprint.of(anchorSet, entities, trustProfile);
 
