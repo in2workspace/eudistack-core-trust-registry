@@ -9,6 +9,7 @@ import es.in2.trustregistry.entities.domain.model.EntityRole;
 import es.in2.trustregistry.entities.domain.model.TrustedEntity;
 import es.in2.trustregistry.shared.infrastructure.config.TrustRegistryProperties;
 import es.in2.trustregistry.snapshot.domain.model.PublishedSnapshot;
+import es.in2.trustregistry.snapshot.domain.model.SnapshotFingerprint;
 import es.in2.trustregistry.snapshot.domain.model.TrustProfile;
 import es.in2.trustregistry.snapshot.domain.model.TrustSnapshot;
 import es.in2.trustregistry.snapshot.domain.port.PublishedSnapshotRepositoryPort;
@@ -32,10 +33,12 @@ import java.util.Set;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -303,5 +306,49 @@ class TrustSnapshotServiceTest {
                 .hasMessageContaining("signing key unavailable");
 
         verify(publishedSnapshotRepository, never()).replaceIfVersionIs(eq(TENANT), anyLong(), any());
+    }
+
+    // --- S3/TD-05: publication metrics must not be recorded on the unchanged-fingerprint path -
+
+    @Test
+    void publishFor_FingerprintUnchangedFromPriorPublication_DoesNotRecordPublicationMetrics() {
+        // Arrange — quality-report.md S3: SnapshotPublicationMetrics registers a new Micrometer
+        // gauge per tenant on first observation, so recording on every publishFor() call —
+        // including this "nothing changed" path, which is the common case once a tenant is
+        // stable — would grow unauthenticated /actuator/prometheus cardinality without bound.
+        TrustAnchorSet anchorSet = new TrustAnchorSet(List.of(), NOW);
+        when(anchorService.currentAnchorSet()).thenReturn(anchorSet);
+        when(entityService.list(TENANT)).thenReturn(List.of());
+
+        // The fingerprint SnapshotVersionResolver will (re)compute from these exact inputs must
+        // match a publication already "on record" for this test's mocked repository, so the
+        // resolver takes the unchanged-fingerprint fast path instead of calling snapshotFactory.
+        var existingFingerprint = SnapshotFingerprint.of(
+                anchorSet, List.of(), TrustProfile.PRODUCTION);
+        PublishedSnapshot alreadyPublished =
+                new PublishedSnapshot(TENANT, 5L, existingFingerprint, "already-signed-document");
+        when(publishedSnapshotRepository.findByTenant(TENANT)).thenReturn(Optional.of(alreadyPublished));
+
+        // Act
+        PublishedSnapshot result = service.publishFor(TENANT);
+
+        // Assert
+        assertThat(result).isSameAs(alreadyPublished);
+        verify(signer, never()).sign(any(TrustSnapshot.class));
+        verify(publicationObserver, never()).recordPublication(eq(TENANT), anyLong(), anyBoolean());
+    }
+
+    @Test
+    void publishFor_FingerprintChanged_RecordsPublicationMetricsExactlyOnce() {
+        // Arrange — the version-advancing path is exactly when the metric must be recorded.
+        when(anchorService.currentAnchorSet()).thenReturn(new TrustAnchorSet(List.of(), NOW));
+        when(entityService.list(TENANT)).thenReturn(List.of());
+
+        // Act
+        PublishedSnapshot published = service.publishFor(TENANT);
+
+        // Assert
+        verify(publicationObserver, times(1))
+                .recordPublication(TENANT, published.version(), false);
     }
 }

@@ -17,6 +17,7 @@ import org.springframework.stereotype.Service;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Publishes the trust snapshot for a tenant: combines the official anchors (global) with the
@@ -94,22 +95,37 @@ public class TrustSnapshotService {
 
         SnapshotFingerprint fingerprint = SnapshotFingerprint.of(anchorSet, entities, trustProfile);
 
+        // quality-report.md S3/tech-debt.md TD-05: SnapshotPublicationMetrics registers a new
+        // Micrometer gauge per tenant the first time it observes one, so recording on every call
+        // — including the "fingerprint unchanged" path SnapshotVersionResolver takes on most
+        // requests — grows unauthenticated /actuator/prometheus cardinality without bound. This
+        // flag, set only when SnapshotVersionResolver actually invokes snapshotFactory (which it
+        // only does on the "content changed" path — see its own Javadoc), is what lets this
+        // method observe "did this call really advance the tenant's version" without adding a
+        // second repository read or changing SnapshotVersionResolver's return type.
+        AtomicBoolean versionAdvanced = new AtomicBoolean(false);
+
         PublishedSnapshot published = versionResolver.resolve(
                 tenantId,
                 fingerprint,
-                version -> new TrustSnapshot(
-                        tenantId,
-                        version,
-                        Instant.now(clock),
-                        properties.snapshotTimeToLiveSeconds(),
-                        anchorSet.anchors(),
-                        entities,
-                        trustProfile,
-                        officialTrustStale,
-                        officialTrustLastSyncedAt),
+                version -> {
+                    versionAdvanced.set(true);
+                    return new TrustSnapshot(
+                            tenantId,
+                            version,
+                            Instant.now(clock),
+                            properties.snapshotTimeToLiveSeconds(),
+                            anchorSet.anchors(),
+                            entities,
+                            trustProfile,
+                            officialTrustStale,
+                            officialTrustLastSyncedAt);
+                },
                 signer::sign);
 
-        publicationObserver.recordPublication(tenantId, published.version(), officialTrustStale);
+        if (versionAdvanced.get()) {
+            publicationObserver.recordPublication(tenantId, published.version(), officialTrustStale);
+        }
         return published;
     }
 
