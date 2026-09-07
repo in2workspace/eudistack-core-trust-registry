@@ -4,7 +4,7 @@ plugins {
     id 'io.spring.dependency-management' version '1.1.7'
     id 'jacoco'
     id 'checkstyle'
-    id 'org.sonarqube' version '7.4.0.8496'
+    id 'org.sonarqube' version '7.5.0.8588'
     id 'com.github.ben-manes.versions' version '0.61.0'
     id 'se.patrikerdes.use-latest-versions' version '0.2.19'
     id 'org.cyclonedx.bom' version '2.2.0'
@@ -49,13 +49,13 @@ dependencies {
     // DSS is the European Commission reference implementation for LOTL/TL
     // handling: pivot chains, MRA, TL signature verification and offline cache.
     // Licence: LGPL-2.1 (linked, not modified) — see docs/architecture.md AD-2.
-    implementation 'eu.europa.ec.joinup.sd-dss:dss-tsl-validation:6.4'
-    implementation 'eu.europa.ec.joinup.sd-dss:dss-service:6.4'
-    implementation 'eu.europa.ec.joinup.sd-dss:dss-spi:6.4'
+    implementation 'eu.europa.ec.joinup.sd-dss:dss-tsl-validation:6.5'
+    implementation 'eu.europa.ec.joinup.sd-dss:dss-service:6.5'
+    implementation 'eu.europa.ec.joinup.sd-dss:dss-spi:6.5'
     // DSS delegates string/collection utilities and CRL parsing to a runtime
     // implementation module; without one it fails at startup, not at compile time.
-    runtimeOnly 'eu.europa.ec.joinup.sd-dss:dss-utils-apache-commons:6.4'
-    runtimeOnly 'eu.europa.ec.joinup.sd-dss:dss-crl-parser-x509crl:6.4'
+    runtimeOnly 'eu.europa.ec.joinup.sd-dss:dss-utils-apache-commons:6.5'
+    runtimeOnly 'eu.europa.ec.joinup.sd-dss:dss-crl-parser-x509crl:6.5'
 
     // --- Cryptography ---
     implementation 'com.nimbusds:nimbus-jose-jwt:10.9.1'
@@ -102,7 +102,7 @@ dependencies {
     // which is not what the component actually is. 4.2.2 declares "The BSD
     // 2-Clause License" explicitly. Same code, unambiguous licence.
     constraints {
-        implementation('org.codehaus.woodstox:stax2-api:4.2.2') {
+        implementation('org.codehaus.woodstox:stax2-api:4.3.0') {
             because 'declares BSD-2-Clause explicitly; 4.2.1 resolves to BSD-4-Clause from an ambiguous POM'
         }
     }
