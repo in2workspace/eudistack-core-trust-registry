@@ -18,7 +18,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 class SnapshotPublicationRateLimitFilterTest {
 
     private static final String LIMITED_PATH = "/trust/v1/snapshot";
-    private static final int MAX_REQUESTS_PER_WINDOW = 30;
+    // quality-report.md B6: re-sized from 30 to 5 given the real ~33 MB snapshot payload — kept
+    // in sync with SnapshotPublicationRateLimitFilter.MAX_REQUESTS_PER_WINDOW.
+    private static final int MAX_REQUESTS_PER_WINDOW = 5;
 
     private final SnapshotPublicationRateLimitFilter filter = new SnapshotPublicationRateLimitFilter();
 
@@ -103,5 +105,52 @@ class SnapshotPublicationRateLimitFilterTest {
             // Assert
             assertThat(response.getStatus()).isNotEqualTo(429);
         }
+    }
+
+    @Test
+    void doFilter_DoubleSlashPrefixVariantOfTheLimitedRoute_IsStillRateLimited() throws Exception {
+        // Arrange — quality-report.md B6: "//trust/v1/snapshot" reached the controller as the
+        // same route while bypassing the filter's exact-string comparison. PathPattern matching
+        // normalises this the same way Spring MVC's own dispatcher does.
+        for (int i = 0; i < MAX_REQUESTS_PER_WINDOW; i++) {
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "//trust/v1/snapshot");
+            request.setRemoteAddr("10.0.0.7");
+            request.addHeader("X-Tenant", "cgcom");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            filter.doFilter(request, response, new MockFilterChain());
+        }
+
+        // Act
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "//trust/v1/snapshot");
+        request.setRemoteAddr("10.0.0.7");
+        request.addHeader("X-Tenant", "cgcom");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        filter.doFilter(request, response, new MockFilterChain());
+
+        // Assert
+        assertThat(response.getStatus()).isEqualTo(429);
+    }
+
+    @Test
+    void doFilter_MatrixParameterVariantOfTheLimitedRoute_IsStillRateLimited() throws Exception {
+        // Arrange — quality-report.md B6: "/trust/v1/snapshot;a=b" (matrix params) also bypassed
+        // the exact-string comparison.
+        for (int i = 0; i < MAX_REQUESTS_PER_WINDOW; i++) {
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/trust/v1/snapshot;a=b");
+            request.setRemoteAddr("10.0.0.8");
+            request.addHeader("X-Tenant", "cgcom");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            filter.doFilter(request, response, new MockFilterChain());
+        }
+
+        // Act
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/trust/v1/snapshot;a=b");
+        request.setRemoteAddr("10.0.0.8");
+        request.addHeader("X-Tenant", "cgcom");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        filter.doFilter(request, response, new MockFilterChain());
+
+        // Assert
+        assertThat(response.getStatus()).isEqualTo(429);
     }
 }

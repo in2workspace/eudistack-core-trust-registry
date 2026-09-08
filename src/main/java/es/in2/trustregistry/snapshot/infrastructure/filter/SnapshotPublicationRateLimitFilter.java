@@ -2,6 +2,7 @@ package es.in2.trustregistry.snapshot.infrastructure.filter;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
+import es.in2.trustregistry.shared.infrastructure.filter.RequestPathNormalizer;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -11,6 +12,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
+import org.springframework.web.util.pattern.PathPattern;
+import org.springframework.web.util.pattern.PathPatternParser;
 
 import java.io.IOException;
 import java.time.Duration;
@@ -53,9 +56,18 @@ import java.util.concurrent.atomic.AtomicInteger;
 @Component
 public class SnapshotPublicationRateLimitFilter extends OncePerRequestFilter {
 
-    private static final String LIMITED_PATH = "/trust/v1/snapshot";
+    private static final PathPattern LIMITED_PATH = PathPatternParser.defaultInstance.parse("/trust/v1/snapshot");
     private static final String TENANT_HEADER = "X-Tenant";
-    private static final int MAX_REQUESTS_PER_WINDOW = 30;
+    /**
+     * {@code quality-report.md} B6 (HIGH): the original 30 req/10s bound was sized assuming a
+     * small document. A real snapshot against the live EU LOTL is ~33 MB — at 30 req/10s that is
+     * ~99 MB/s of egress authorised per single (IP, tenant) key, an order of magnitude beyond
+     * what sizing for a small payload intended. 5 req/10s keeps a legitimate consumer's
+     * conditional-request polling (AD-4, cheap on the unchanged path) comfortably served while
+     * bounding worst-case single-key egress to real-payload scale (~16.5 MB/s) rather than the
+     * unbounded-by-accident figure the original number implied.
+     */
+    private static final int MAX_REQUESTS_PER_WINDOW = 5;
     private static final Duration WINDOW = Duration.ofSeconds(10);
     private static final long MAXIMUM_TRACKED_KEYS = 10_000;
 
@@ -67,7 +79,13 @@ public class SnapshotPublicationRateLimitFilter extends OncePerRequestFilter {
     @Override
     protected void doFilterInternal(@NonNull HttpServletRequest request, @NonNull HttpServletResponse response,
                                      @NonNull FilterChain chain) throws ServletException, IOException {
-        if (!LIMITED_PATH.equals(request.getRequestURI())) {
+        // quality-report.md B6: request.getRequestURI() is the raw, unnormalised URI — "//trust/
+        // v1/snapshot" and "/trust/v1/snapshot;a=b" (matrix params) both reach the controller
+        // unequal to an exact-string LIMITED_PATH, bypassing the throttle entirely.
+        // RequestPathNormalizer collapses repeated separators before PathPattern matches, so a
+        // request that reaches the controller as /trust/v1/snapshot is recognised as such here
+        // too, regardless of how it was written on the wire.
+        if (!LIMITED_PATH.matches(RequestPathNormalizer.normalizedPath(request))) {
             chain.doFilter(request, response);
             return;
         }

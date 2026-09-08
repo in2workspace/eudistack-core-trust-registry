@@ -293,8 +293,19 @@ class TrustRegistryEndToEndTest {
         provision(tenant, "VATES-NFR-P01", EntityRole.RELYING_PARTY);
         fetchSnapshot(tenant); // warm-up: first publication actually signs
 
-        // When the same snapshot is requested repeatedly
-        int sampleSize = 50;
+        // When the same snapshot is requested repeatedly — quality-report.md B6:
+        // SnapshotPublicationRateLimitFilter caps a single (IP, tenant) pair at
+        // MAX_REQUESTS_PER_WINDOW=5 requests per 10 s window. This sample must stay inside that
+        // budget alongside the warm-up call above (both share the same loopback IP and tenant),
+        // or Apache HttpClient's own Retry-After-aware retry (RFC 9110 §15.5.5, exercised by
+        // TestRestTemplate here) would transparently absorb the 429s by waiting out the window on
+        // every excess request — the requests would still all resolve 200 OK, silently turning
+        // this into a rate-limiter test rather than the AD-1 fast-path regression guard it is
+        // meant to be, and inflating the measured p95 by an order of magnitude for reasons
+        // unrelated to signing cost.
+        // 4 = SnapshotPublicationRateLimitFilter.MAX_REQUESTS_PER_WINDOW (5) - 1 for the warm-up
+        // call above; kept as a literal here since that constant is private to its class.
+        int sampleSize = 4;
         List<Long> latenciesMillis = new ArrayList<>(sampleSize);
         for (int i = 0; i < sampleSize; i++) {
             long start = System.nanoTime();
