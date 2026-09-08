@@ -163,6 +163,47 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `TrustSnapshotController.requireTenant()` (EUD-228, `quality-report.md` S1, `TD-03`) now
+  enforces a tenant-id allowlist (`^[a-z0-9][a-z0-9._-]{0,63}$`) once, before the tenant value
+  reaches any adapter, rejecting with `400` on mismatch — closing a case-folding/unicode-
+  normalisation collision risk on case-insensitive/NFD-normalising filesystems that could let one
+  tenant's request read or overwrite another tenant's signed snapshot.
+  `FileSystemPublishedSnapshotRepository.fileFor()`'s own traversal denylist is kept unchanged as
+  defence in depth. Also bounds the key space `SnapshotPublicationMetrics` and `tenantLocks` can
+  grow to (partial mitigation of S3/`TD-05`).
+- `GET /trust/v1/snapshot` (EUD-228, `quality-report.md` S2, `TD-04`) is now rate limited by a
+  new `SnapshotPublicationRateLimitFilter`: `429` + `Retry-After` past a fixed per-(source IP,
+  `X-Tenant`) window, closing the resource-exhaustion risk of the route's public, unauthenticated
+  scope decision (`technical-design.md` `AD-7`). Residual tenant-enumeration-by-response-shape
+  risk is narrowed, not eliminated, and tracked separately as `TD-09`.
+- `SnapshotPublicationMetrics` (EUD-228, `quality-report.md` S3, `TD-05`) now only registers/
+  updates its per-tenant gauges on the content-changed path `SnapshotVersionResolver` actually
+  takes, instead of on every `publishFor()` call — the unchanged-fingerprint fast path no longer
+  grows unauthenticated `/actuator/prometheus` label cardinality without bound.
+- `FileSystemPublishedSnapshotRepository` (EUD-228, `quality-report.md` B4 CRITICAL) no longer
+  fails every read of a tenant's signed snapshot larger than Jackson's default 20,000,000-
+  character string limit: a real snapshot against the live EU LOTL (10,389 anchors) produces a
+  `signedDocument` JWS of ~33 MB, which persisted without error but then threw
+  `StreamConstraintsException` on every subsequent read, leaving that tenant in a permanent
+  `500` after its first successful publish. The adapter's `ObjectMapper` now raises
+  `StreamReadConstraints.maxStringLength` to 100,000,000 — real-world headroom over the ~33 MB
+  observed today, while still a bound rather than "unlimited" (avoiding reopening, at the JSON
+  parsing layer, the unbounded-resource risk `S3`/`TD-05` closed elsewhere).
+- The `X-Tenant` allowlist introduced for S1 (`quality-report.md` B5 HIGH) covered
+  `TrustSnapshotController` only, leaving `GET /trust/v1/entities` completely unvalidated — a
+  `../../etc/passwd` or 300-character `X-Tenant` header reached
+  `InMemoryTrustedEntityRepository.findAllByTenant()` unfiltered. The allowlist now lives in a
+  single shared `TenantAllowlistFilter` (`shared/infrastructure/filter/`) covering every
+  `/trust/v1/**` route, so a new or existing controller can no longer forget it.
+- `SnapshotPublicationRateLimitFilter` (`quality-report.md` B6 HIGH) matched
+  `request.getRequestURI()` by exact string equality, letting `//trust/v1/snapshot` or
+  `/trust/v1/snapshot;a=b` bypass the throttle entirely while still resolving to the same
+  controller. Both this filter and the new `TenantAllowlistFilter` now match through a shared
+  `RequestPathNormalizer` that collapses repeated path separators before `PathPattern` matching,
+  the same normalisation Spring MVC's own dispatcher applies before routing. The window's request
+  budget was also re-sized from 30 to 5 requests per 10 s: at the real ~33 MB snapshot size, 30
+  req/10s authorised ~99 MB/s of egress per single (IP, tenant) key, an order of magnitude beyond
+  what the original figure, sized for a small document, intended.
 - Startup no longer leaves the served anchor set unpopulated (EUD-227, `AC-05`): the cache-only
   refresh run right after boot now applies its `SyncOutcome` to the repository via
   `TrustAnchorSyncService.applyOutcome(SyncOutcome)`, the same atomic-replace step the scheduled

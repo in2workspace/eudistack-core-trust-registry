@@ -111,6 +111,30 @@ class FileSystemPublishedSnapshotRepositoryTest {
     }
 
     @Test
+    void findByTenant_SignedDocumentLargerThanJacksonsDefaultStringLimit_IsPersistedAndRereadWithoutError() {
+        // Arrange — quality-report.md B4 (CRITICAL): a real snapshot against the live EU LOTL
+        // (10,389 anchors) produces a signedDocument JWS of ~33 MB, past Jackson's default
+        // StreamReadConstraints.getMaxStringLength() of 20,000,000 characters. write() persisted
+        // it without complaint, but every subsequent read() then threw StreamConstraintsException
+        // -> UncheckedIOException -> permanent HTTP 500 for that tenant. This uses a synthetic
+        // 25,000,000-character signedDocument (deliberately past the 20M default, comfortably
+        // under the repository's own 100M bound) so the test does not depend on fetching the real
+        // LOTL.
+        FileSystemPublishedSnapshotRepository repository = newRepository();
+        String largeSignedDocument = "a".repeat(25_000_000);
+        PublishedSnapshot published = new PublishedSnapshot(
+                "cgcom", 1L, new SnapshotFingerprint("fp-large"), largeSignedDocument);
+        repository.replaceIfVersionIs("cgcom", 0L, published);
+
+        // Act
+        Optional<PublishedSnapshot> reread = repository.findByTenant("cgcom");
+
+        // Assert — no UncheckedIOException/StreamConstraintsException, and the full document
+        // round-trips byte for byte.
+        assertThat(reread).contains(published);
+    }
+
+    @Test
     void findByTenant_NewInstanceOverSameDirectory_SurvivesRestart() {
         // Arrange: a fresh repository instance over the same cacheDirectory simulates a process
         // restart at the unit level (task 22 covers the same guarantee at container level).

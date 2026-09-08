@@ -1,5 +1,7 @@
 package es.in2.trustregistry.snapshot.infrastructure.adapter.persistence;
 
+import com.fasterxml.jackson.core.JsonFactory;
+import com.fasterxml.jackson.core.StreamReadConstraints;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import es.in2.trustregistry.shared.infrastructure.config.TrustRegistryProperties;
 import es.in2.trustregistry.snapshot.domain.model.PublishedSnapshot;
@@ -66,13 +68,34 @@ public class FileSystemPublishedSnapshotRepository implements PublishedSnapshotR
     private static final String FILE_SUFFIX = ".json";
     private static final String TEMP_FILE_INFIX = ".tmp-";
 
+    /**
+     * {@code quality-report.md} B4 (CRITICAL): Jackson's default {@code
+     * StreamReadConstraints.getMaxStringLength()} is 20,000,000 characters. A real snapshot
+     * against the live EU LOTL (10,389 anchors) produces a {@code signedDocument} JWS of ~33 MB
+     * on its own, well past that default — {@code write()} persists it as valid JSON without
+     * complaint, but every subsequent {@code read()} then throws {@code
+     * StreamConstraintsException}, which this class's own deliberate fail-fast policy turns into
+     * an {@code UncheckedIOException} (see the class Javadoc) — a tenant's very first successful
+     * publish leaves it in a permanent HTTP 500 until someone deletes the file by hand. 100 MB
+     * gives real-world headroom over the ~33 MB observed today (the LOTL only grows) while still
+     * being a bound, not "unlimited" — an unbounded string length would reopen, at the JSON
+     * parsing layer, exactly the kind of unbounded-resource risk {@code S3}/{@code TD-05} closed
+     * for the in-memory structures indexed by tenant.
+     */
+    private static final int MAX_PERSISTED_STRING_LENGTH = 100_000_000;
+
     private final Path snapshotsDirectory;
     private final ObjectMapper objectMapper;
     private final ConcurrentHashMap<String, Lock> tenantLocks = new ConcurrentHashMap<>();
 
     public FileSystemPublishedSnapshotRepository(TrustRegistryProperties properties) {
         this.snapshotsDirectory = Path.of(properties.cacheDirectory(), SNAPSHOTS_SUBDIRECTORY);
-        this.objectMapper = new ObjectMapper();
+        JsonFactory jsonFactory = JsonFactory.builder()
+                .streamReadConstraints(StreamReadConstraints.builder()
+                        .maxStringLength(MAX_PERSISTED_STRING_LENGTH)
+                        .build())
+                .build();
+        this.objectMapper = new ObjectMapper(jsonFactory);
         createDirectoryIfMissing(snapshotsDirectory);
     }
 
