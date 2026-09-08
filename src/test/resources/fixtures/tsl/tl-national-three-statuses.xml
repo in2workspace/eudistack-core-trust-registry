@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?><TrustServiceStatusList xmlns="http://uri.etsi.org/02231/v2#" xmlns:ns2="http://www.w3.org/2000/09/xmldsig#" xmlns:ns3="http://uri.etsi.org/02231/v2/additionaltypes#" xmlns:ns4="http://uri.etsi.org/01903/v1.3.2#" Id="EUDISTACK-TEST-TL-CC" TSLTag="http://uri.etsi.org/19612/TSLTag">
+    <SchemeInformation>
+        <TSLVersionIdentifier>5</TSLVersionIdentifier>
+        <TSLSequenceNumber>1</TSLSequenceNumber>
+        <TSLType>http://uri.etsi.org/TrstSvc/TrustedList/TSLType/EUgeneric</TSLType>
+        <SchemeOperatorName>
+            <Name xml:lang="en">EUDIStack Test Fixture Operator CC</Name>
+        </SchemeOperatorName>
+        <SchemeOperatorAddress>
+            <PostalAddresses>
+                <PostalAddress xml:lang="en">
+                    <StreetAddress>Fixture Street 1</StreetAddress>
+                    <Locality>Test City</Locality>
+                    <PostalCode>00000</PostalCode>
+                    <CountryName>CC</CountryName>
+                </PostalAddress>
+            </PostalAddresses>
+            <ElectronicAddress>
+                <URI xml:lang="en">mailto:fixtures-cc@eudistack.test</URI>
+            </ElectronicAddress>
+        </SchemeOperatorAddress>
+        <SchemeName>
+            <Name xml:lang="en">CC:EUDIStack test fixture — not a real national Trusted List</Name>
+        </SchemeName>
+        <SchemeInformationURI>
+            <URI xml:lang="en">https://fixtures.eudistack.test/tl-cc-legalnotice.html</URI>
+        </SchemeInformationURI>
+        <StatusDeterminationApproach>http://uri.etsi.org/TrstSvc/TrustedList/StatusDetn/EUappropriate</StatusDeterminationApproach>
+        <SchemeTypeCommunityRules>
+            <URI xml:lang="en">http://uri.etsi.org/TrstSvc/TrustedList/schemerules/EUcommon</URI>
+        </SchemeTypeCommunityRules>
+        <SchemeTerritory>CC</SchemeTerritory>
+        <PolicyOrLegalNotice>
+            <TSLLegalNotice xml:lang="en">Test fixture for EUD-227 (AC-03). Not a real official national Trusted List. Signed with a throwaway test certificate, never served from a real endpoint. Contains three services in three different statuses to exercise usability evaluation.</TSLLegalNotice>
+        </PolicyOrLegalNotice>
+        <HistoricalInformationPeriod>65535</HistoricalInformationPeriod>
+        <NextUpdate>
+            <dateTime>2030-01-01T00:00:00Z</dateTime>
+        </NextUpdate>
+        <ListIssueDateTime>2026-01-01T00:00:00Z</ListIssueDateTime>
+    </SchemeInformation>
+    <TrustServiceProviderList>
+        <TrustServiceProvider>
+            <TSPInformation>
+                <TSPName>
+                    <Name xml:lang="en">EUDIStack Test Qualified Provider CC</Name>
+                </TSPName>
+                <TSPTradeName>
+                    <Name xml:lang="en">Test Provider CC</Name>
+                </TSPTradeName>
+                <TSPAddress>
+                    <PostalAddresses>
+                        <PostalAddress xml:lang="en">
+                            <StreetAddress>Fixture Street 1</StreetAddress>
+                            <Locality>Test City</Locality>
+                            <PostalCode>00000</PostalCode>
+                            <CountryName>CC</CountryName>
+                        </PostalAddress>
+                    </PostalAddresses>
+                    <ElectronicAddress>
+                        <URI xml:lang="en">mailto:provider-cc@eudistack.test</URI>
+                    </ElectronicAddress>
+                </TSPAddress>
+                <TSPInformationURI>
+                    <URI xml:lang="en">https://fixtures.eudistack.test/provider-cc.html</URI>
+                </TSPInformationURI>
+            </TSPInformation>
+            <TSPServices>
+                <!-- Service 1: granted — the only one AC-03 expects to be usable "now". -->
+                <TSPService>
+                    <ServiceInformation>
+                        <ServiceTypeIdentifier>http://uri.etsi.org/TrstSvc/Svctype/CA/QC</ServiceTypeIdentifier>
+                        <ServiceName>
+                            <Name xml:lang="en">EUDIStack Test Qualified CA CC — Granted</Name>
+                        </ServiceName>
+                        <ServiceDigitalIdentity>
+                            <DigitalId>
+                                <X509Certificate>MIIDaDCCAlCgAwIBAgIJAN+BWfDV3wYzMA0GCSqGSIb3DQEBCwUAMGIxCzAJBgNVBAYTAkVTMR8wHQYDVQQKExZFVURJU3RhY2sgVGVzdCBGaXh0dXJlMTIwMAYDVQQDEylFVURJU3RhY2sgVGVzdCBTZXJ2aWNlIHNlcnZpY2UtZ3JhbnRlZC1jYzAeFw0yNjA4MjcxMDIyNDlaFw0zNjA4MjQxMDIyNDlaMGIxCzAJBgNVBAYTAkVTMR8wHQYDVQQKExZFVURJU3RhY2sgVGVzdCBGaXh0dXJlMTIwMAYDVQQDEylFVURJU3RhY2sgVGVzdCBTZXJ2aWNlIHNlcnZpY2UtZ3JhbnRlZC1jYzCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAKroDBJs7vKAa3Zmbi+th4vSwdmVehaHUQ/+cPPaRwYkykzOSi20TBF9tasGLQ7MEYXsb73PYGWakmRy7EGCLQx2YLbTx4/mhMcPl89sAlId2E81lUa0O6n4JMGa1xe6oALeD65NB7FRA4d0CCZDglB4pbdPKcAvoEVZ7UG/uiHzIoGqvcQCZjS4pwLxQgqD6y5aswfQibLVZQ6cuhgVyHOIx+4ODd35NgrsM4ucH5vLWmKq8DwZ8QhD+s3WfWDo65rw+j8c70ndCf3j438unHQ41Zmu7LgYkeG/qENAR4TrnlMjAbu/EkBNf5tJDrSj3eIqyxoIPwTqBtjHkWqlV5kCAwEAAaMhMB8wHQYDVR0OBBYEFPajux1Rwd9D2a13AmOzJqG0urvjMA0GCSqGSIb3DQEBCwUAA4IBAQASFWsF2nFt1v/Yfd1ICV+JisXZm1G4KsqF/jV3QsloxfBC4R9/VOBNuYYHm3nOMffsxClJKm79Qc48AsQOqyTgOEH3Yiq53fPG4TtKqoHVkyBX91cz4d8Vb0JS0EtfLojWJaRi38Jx5pc6sVFVJUWggZt8y6EoC8QfK7fqSWZemwzcTHlyB2t89BEE7Pw+nTNCE/Mf+YpP7J3x6qC9eis+uI4uWnjGxxC3V2HVfrR9vuP2usW7Z/HN+VLKQyKXpksGGSM+QrUpCVoY/BU09ONzdShQi8PhX98XdWBoJcHyXqqajYDLkHisYbr3lpCQWFveX3PWnjVePGdm/s/ueVrd</X509Certificate>
+                            </DigitalId>
+                        </ServiceDigitalIdentity>
+                        <ServiceStatus>http://uri.etsi.org/TrstSvc/TrustedList/Svcstatus/granted</ServiceStatus>
+                        <StatusStartingTime>2025-01-01T00:00:00Z</StatusStartingTime>
+                    </ServiceInformation>
+                </TSPService>
+                <!-- Service 2: withdrawn — post-eIDAS status; preserved, never dropped (AD-4). -->
+                <TSPService>
+                    <ServiceInformation>
+                        <ServiceTypeIdentifier>http://uri.etsi.org/TrstSvc/Svctype/CA/QC</ServiceTypeIdentifier>
+                        <ServiceName>
+                            <Name xml:lang="en">EUDIStack Test Qualified CA CC — Withdrawn</Name>
+                        </ServiceName>
+                        <ServiceDigitalIdentity>
+                            <DigitalId>
+                                <X509Certificate>MIIDazCCAlOgAwIBAgIIKubBes+2f28wDQYJKoZIhvcNAQELBQAwZDELMAkGA1UEBhMCRVMxHzAdBgNVBAoTFkVVRElTdGFjayBUZXN0IEZpeHR1cmUxNDAyBgNVBAMTK0VVRElTdGFjayBUZXN0IFNlcnZpY2Ugc2VydmljZS13aXRoZHJhd24tY2MwHhcNMjYwODI3MTAyMjQ5WhcNMzYwODI0MTAyMjQ5WjBkMQswCQYDVQQGEwJFUzEfMB0GA1UEChMWRVVESVN0YWNrIFRlc3QgRml4dHVyZTE0MDIGA1UEAxMrRVVESVN0YWNrIFRlc3QgU2VydmljZSBzZXJ2aWNlLXdpdGhkcmF3bi1jYzCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAIp4kiYwUwJpPpsSA8ZFtyxnh+bkFjOEl9A+MGuUneK3KdpClFIXPVljFhyVQOrY0Oz522FVEzNby6djGZUAVjcbfCQf9xWPgAJaUScEcH/qIQVfLyb9MaiXyPnm+T6K0+uDmSMXNJPbjWFyompt4RPfY8xwGBNklYI2l+VcE1LLk6TIiHVC8Lr88PN6cC++45vSm3XhTmA5dDNPiipmz0uyJ2B2rImnXWKW1qEfk+wrPC6Tt5lBJfLdv1i5ngl5EbRTNaaX/AQe4O2B3JFXekMYzKL0Fj1WynVoweBCzY2ONFGnle/jG9W9Ra85h8j5cA6OwOK3tq+A881uXdZ/XO8CAwEAAaMhMB8wHQYDVR0OBBYEFJq7l8eMPnlSOHaaL7sa8/O42GjaMA0GCSqGSIb3DQEBCwUAA4IBAQB3vQkRGx+ds/ivLBeA0NonmLAo8KPT/44qRIHSgY3TYLPd8vDA6WqLKiz2Vb9oe1/DcRGYMdKQ1xtuSs3yRs7eMxyQSAu00FZPAKeT2+bvIavrB5vGhVhfXXgE6DPc0DUYha4X0BRA89QxWtsXFoqOlMYPVuOlkPkABTbn7WtFkIJdGwmX8q81Cra70CWd6QrR1Jmugrsg3vExDWkFA3H1Ynf9tg3PX9ZuC1WPDvUbyQcCBC5CLLf7fJJJKYz24PWnmJ0a60q8J1TWEDQ17mN7y4gfZ1/7ndo8UKTds45GBtr+uVPqEqivS6lmWhcNvapKC6lxs/Qm9NvayydX/j0P</X509Certificate>
+                            </DigitalId>
+                        </ServiceDigitalIdentity>
+                        <ServiceStatus>http://uri.etsi.org/TrstSvc/TrustedList/Svcstatus/withdrawn</ServiceStatus>
+                        <StatusStartingTime>2025-01-01T00:00:00Z</StatusStartingTime>
+                    </ServiceInformation>
+                </TSPService>
+                <!--
+                  Service 3: substitution for the literally-described "servicio suspendido".
+                  ETSI TS 119 612 defines no "suspended" status URI, pre- or post-eIDAS (verified
+                  against DSS 6.4's TrustServiceStatus enum). "supervisionrevoked" is the closest
+                  honest analog: a real, DSS-recognised, non-granted legacy status distinct from
+                  "withdrawn" — see fixtures/tsl/README.md and tasks.md task 13 Notes for the
+                  full resolution, approved by the coordinator instead of fabricating a URI DSS
+                  would not recognise.
+                -->
+                <TSPService>
+                    <ServiceInformation>
+                        <ServiceTypeIdentifier>http://uri.etsi.org/TrstSvc/Svctype/CA/QC</ServiceTypeIdentifier>
+                        <ServiceName>
+                            <Name xml:lang="en">EUDIStack Test Qualified CA CC — Supervision Revoked</Name>
+                        </ServiceName>
+                        <ServiceDigitalIdentity>
+                            <DigitalId>
+                                <X509Certificate>MIIDZjCCAk6gAwIBAgIJALxC88RQSWUXMA0GCSqGSIb3DQEBCwUAMGExCzAJBgNVBAYTAkVTMR8wHQYDVQQKExZFVURJU3RhY2sgVGVzdCBGaXh0dXJlMTEwLwYDVQQDEyhFVURJU3RhY2sgVGVzdCBTZXJ2aWNlIHNlcnZpY2UtbGVnYWN5LWNjMB4XDTI2MDgyNzEwMjI1MFoXDTM2MDgyNDEwMjI1MFowYTELMAkGA1UEBhMCRVMxHzAdBgNVBAoTFkVVRElTdGFjayBUZXN0IEZpeHR1cmUxMTAvBgNVBAMTKEVVRElTdGFjayBUZXN0IFNlcnZpY2Ugc2VydmljZS1sZWdhY3ktY2MwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQDNLtvcUFwgWBmUrf2VZyPuSlc5tcmsmvO3+Eh5kFEbP6RwVesyZgK71ZmH8X6kfi9p8uvFDbCf5bHuG/HTF4mvQrJW176PmRQpaWyEjhLYqdMfPqvBrL8Ic7VoYHTE97JM6zw308zfGcOvmbIJzoJn5o21odqaVsYEAFLipEir+cAcrvbptOxEhhgz2UVPWPXjikGrw9MwBv6PyEiW1KsOz1kTNjoy5MUPirmnRz8QZiw5X9+vwphJ/JsCf5HQz5KDbndaGZbPEO+zdZbTdWyNNc1N4TPbpQD/F0gaJnGOfKDbb8meWYm+fN1PzN3N1Nx1kFassRdU5anCmyy6r16VAgMBAAGjITAfMB0GA1UdDgQWBBQAgI+31EQ4llke+/++jRonHXnDPTANBgkqhkiG9w0BAQsFAAOCAQEAGhtTfP54QXPPGG73cnT3BCUargOe+H8nxybFkmQvw15G2msW0Zqvf2kpTRovXCKAJR4HzRQKCl8dHxMd0DBxza+K7QXwzPmKfl8aqJVStFrT0AoqYzbbpiUR1Qq02V8DDnInLWIkAwMAbCbNjwiolC/oK5gO6c4tNfoSWrSRInCpoiDxnBfxK6ABPN4qHuUZLC1ElfZnXa0MtR6rftm1penbKAypXPUz54dxmwM0j345KJalruhP/E0Ur1gGF83y8H2IGqk6QUkZa290sn+8EWMrSh7w/lo5DRtKQ200td4Ca6gOK99GSL8xBqpEEyz95jiBrUvm4ck651+DyCR2VA==</X509Certificate>
+                            </DigitalId>
+                        </ServiceDigitalIdentity>
+                        <ServiceStatus>http://uri.etsi.org/TrstSvc/TrustedList/Svcstatus/supervisionrevoked</ServiceStatus>
+                        <StatusStartingTime>2025-01-01T00:00:00Z</StatusStartingTime>
+                    </ServiceInformation>
+                </TSPService>
+            </TSPServices>
+        </TrustServiceProvider>
+    </TrustServiceProviderList>
+<ds:Signature xmlns:ds="http://www.w3.org/2000/09/xmldsig#" Id="id-6358d6a2d1a45b71750ee2ed210b0e54"><ds:SignedInfo><ds:CanonicalizationMethod Algorithm="http://www.w3.org/2001/10/xml-exc-c14n#"/><ds:SignatureMethod Algorithm="http://www.w3.org/2001/04/xmldsig-more#rsa-sha256"/><ds:Reference Id="r-id-6358d6a2d1a45b71750ee2ed210b0e54-1" URI=""><ds:Transforms><ds:Transform Algorithm="http://www.w3.org/2002/06/xmldsig-filter2"><dsig-filter2:XPath xmlns:dsig-filter2="http://www.w3.org/2002/06/xmldsig-filter2" Filter="subtract">/descendant::ds:Signature</dsig-filter2:XPath></ds:Transform><ds:Transform Algorithm="http://www.w3.org/2001/10/xml-exc-c14n#"/></ds:Transforms><ds:DigestMethod Algorithm="http://www.w3.org/2001/04/xmlenc#sha256"/><ds:DigestValue>TRHJzJduhje/vyYzZVtSXbVedCPvC+UotpiK1xp2tE0=</ds:DigestValue></ds:Reference><ds:Reference Type="http://uri.etsi.org/01903#SignedProperties" URI="#xades-id-6358d6a2d1a45b71750ee2ed210b0e54"><ds:Transforms><ds:Transform Algorithm="http://www.w3.org/2001/10/xml-exc-c14n#"/></ds:Transforms><ds:DigestMethod Algorithm="http://www.w3.org/2001/04/xmlenc#sha256"/><ds:DigestValue>OSXLess7B3qyoRgv7Y9xDtZjYSkzP6rIwUQcPlEYTHE=</ds:DigestValue></ds:Reference></ds:SignedInfo><ds:SignatureValue Id="value-id-6358d6a2d1a45b71750ee2ed210b0e54">dDPVupSMAPWsrTa+vU8VtVGQcLzPzuxz8wr0htUMC8QFaV+miXnEK3yJEXu1H17PGb62Boh9LHIv1wbDvg/Lcw09SRUVBmM6zby0vhVBCr8UZlEhZc4lArVJzSLI0tNb2FLJ6VEgpnz9IGZ1Xl7U7JxzLTGEL9w/AORU1DbKIEYhOsK9VRrjcpZzNQqU9fV/yVuK8bTp1aCxrlj6/AcluIIztc0yvZvj4Yr8BTecfifIKiMMEM8mW7lZozQPA1WMQYMzkioV+dEloJihWhNUS3nsmJllWNv2h81NWtukQm9KxGAJU2Da8QS3EgiZ4npt+ivLbORzaW9+3q97DqGqTA==</ds:SignatureValue><ds:KeyInfo><ds:X509Data><ds:X509Certificate>MIIDcDCCAligAwIBAgIIdNORgiZ20ukwDQYJKoZIhvcNAQELBQAwVjELMAkGA1UEBhMCRVMxHzAdBgNVBAoTFkVVRElTdGFjayBUZXN0IEZpeHR1cmUxJjAkBgNVBAMTHUVVRElTdGFjayBUZXN0IFRTTCBTaWduaW5nIENBMB4XDTI2MDgyNzEwMTgyN1oXDTM2MDgyNDEwMTgyN1owVjELMAkGA1UEBhMCRVMxHzAdBgNVBAoTFkVVRElTdGFjayBUZXN0IEZpeHR1cmUxJjAkBgNVBAMTHUVVRElTdGFjayBUZXN0IFRTTCBTaWduaW5nIENBMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAog+SyOxfbPHZAlPWH4fOh7kxvpqjOZui6OosRYVg72AzEkJJD8pMt+5Fu2AaA0VAVghevsaZE/G8qzXb7zzGHsIrvwOLqusYy8xNZnG9zkd8KYUmABq29ztvWeo7j+7mDnjK6J+KKdGJPoTS/f+3a7rMq0eyFDYiVLO6UngdYYegnB15LMbJi9Jq490+f2e88xOzEXXg5AEiq7z5ESELwJsh6u3a9FsydyJYYh9oXxKpo+LQbFsMyU2O/xMC0ZGsituk48gUZpoz3D0BQaMj8mXur46q7WDZLHqn9ZBu0yuNEWrbGmhbMOhku0vZ8g/qi8nqLgynICwWxubjQBxnbQIDAQABo0IwQDAdBgNVHQ4EFgQUqPb3lp5T80eu/szASg6ksgGf4S8wDgYDVR0PAQH/BAQDAgGGMA8GA1UdEwEB/wQFMAMBAf8wDQYJKoZIhvcNAQELBQADggEBACmR6l3hLG90tesTpmrQo5QPtr/a+jZmg+QwgnMaA9+JMK6Rm8fIc6WODWAew+FcUloWpiIQ6w2kmW7RgM3MX000em76P7CbHdiIy9ALgl2MasLZxVR7GS4W2BaXNF7gPYqBNwR2ULfhi/l12X1dkvbd3CoJnKRbT1r3hglK8lQWUvZCDv5zuzlbNjajq1oen2gLMPWASlvyyylDyeg/XOwjRWnCoaWOEb97s49gIUGePZwU/LAlHCnO518vtaHnC37++gPXva6J6t47EWaCzFZPgDkyKGHn1k5BngmFIb/9H4hzR2jKbPyv2MS/LUjdIW4/0bj19Y8bgeKC870GbDg=</ds:X509Certificate></ds:X509Data></ds:KeyInfo><ds:Object><xades:QualifyingProperties xmlns:xades="http://uri.etsi.org/01903/v1.3.2#" Target="#id-6358d6a2d1a45b71750ee2ed210b0e54"><xades:SignedProperties Id="xades-id-6358d6a2d1a45b71750ee2ed210b0e54"><xades:SignedSignatureProperties><xades:SigningTime>2026-08-27T11:23:01Z</xades:SigningTime><xades:SigningCertificateV2><xades:Cert><xades:CertDigest><ds:DigestMethod Algorithm="http://www.w3.org/2001/04/xmlenc#sha512"/><ds:DigestValue>vh7h9ecGyvDd0XscvFo+eszodlGsp0In4swaVX1cl9RsIuI+u0dgP3FGCYDbGq+UpyQD8ZIkCUmbsrBvz5UVlQ==</ds:DigestValue></xades:CertDigest><xades:IssuerSerialV2>MGYwWqRYMFYxCzAJBgNVBAYTAkVTMR8wHQYDVQQKExZFVURJU3RhY2sgVGVzdCBGaXh0dXJlMSYwJAYDVQQDEx1FVURJU3RhY2sgVGVzdCBUU0wgU2lnbmluZyBDQQIIdNORgiZ20uk=</xades:IssuerSerialV2></xades:Cert></xades:SigningCertificateV2></xades:SignedSignatureProperties><xades:SignedDataObjectProperties><xades:DataObjectFormat ObjectReference="#r-id-6358d6a2d1a45b71750ee2ed210b0e54-1"><xades:MimeType>text/xml</xades:MimeType></xades:DataObjectFormat></xades:SignedDataObjectProperties></xades:SignedProperties></xades:QualifyingProperties></ds:Object></ds:Signature></TrustServiceStatusList>

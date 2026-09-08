@@ -17,6 +17,9 @@ trust-registry:
   cache-directory: ${TRUST_REGISTRY_CACHE_DIR:/var/cache/trust-registry}
   # How long a published snapshot stays usable by an offline consumer.
   snapshot-time-to-live-seconds: ${TRUST_REGISTRY_SNAPSHOT_TTL:86400}
+  # Maximum age a successful synchronisation may reach before the anchor set is flagged
+  # as stale (AC-06). The set is never emptied for this alone (AD-3).
+  max-age: ${TRUST_REGISTRY_MAX_AGE:PT24H}
   sync:
     initial-delay: ${TRUST_REGISTRY_SYNC_INITIAL_DELAY:PT10S}
     interval: ${TRUST_REGISTRY_SYNC_INTERVAL:PT6H}

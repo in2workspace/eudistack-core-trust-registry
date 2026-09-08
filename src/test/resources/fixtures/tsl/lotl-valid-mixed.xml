@@ -1,0 +1,145 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?><!--
+  EUD-227, task 15 addendum to task 13's fixture set (see fixtures/tsl/README.md and
+  tasks.md task 13 Notes addendum for the full rationale).
+
+  Task 13's lotl-valid.xml only ever points at tl-national-a-valid.xml and
+  tl-national-b-valid.xml, both granted-only and both valid — it cannot exercise AC-02
+  ("one national list tampered, the LOTL and the other lists are fine, sync continues"),
+  AC-03 through the real DSS pipeline (a valid list with three services in three different
+  statuses), or EC-01 (an unreachable national list) end to end, because no fixture LOTL
+  references tl-national-tampered.xml, tl-national-three-statuses.xml, or an unreachable
+  location. This LOTL variant, added by task 15, points at a mix of:
+    - tl-national-b-valid.xml (BB, granted)              -> AC-01/AC-02 "other lists are fine"
+    - tl-national-tampered.xml (ZZ, signature broken)     -> AC-02 / ES-02(list-level)
+    - tl-national-three-statuses.xml (CC, three statuses) -> AC-03 through a real sync
+    - a location whose hostname is never registered as a network alias in the container
+      test -> EC-01 (deterministic DNS failure, not a stopped-container timing race)
+--><TrustServiceStatusList xmlns="http://uri.etsi.org/02231/v2#" xmlns:ns2="http://www.w3.org/2000/09/xmldsig#" xmlns:ns3="http://uri.etsi.org/02231/v2/additionaltypes#" xmlns:ns4="http://uri.etsi.org/01903/v1.3.2#" xmlns:ns5="http://uri.etsi.org/TrstSvc/SvcInfoExt/eSigDir-1999-93-EC-TrustedList/#" Id="EUDISTACK-TEST-LOTL-MIXED" TSLTag="http://uri.etsi.org/19612/TSLTag">
+    <SchemeInformation>
+        <TSLVersionIdentifier>5</TSLVersionIdentifier>
+        <TSLSequenceNumber>1</TSLSequenceNumber>
+        <TSLType>http://uri.etsi.org/TrstSvc/TrustedList/TSLType/EUlistofthelists</TSLType>
+        <SchemeOperatorName>
+            <Name xml:lang="en">EUDIStack Test Fixture Operator</Name>
+        </SchemeOperatorName>
+        <SchemeOperatorAddress>
+            <PostalAddresses>
+                <PostalAddress xml:lang="en">
+                    <StreetAddress>Fixture Street 1</StreetAddress>
+                    <Locality>Test City</Locality>
+                    <PostalCode>00000</PostalCode>
+                    <CountryName>EU</CountryName>
+                </PostalAddress>
+            </PostalAddresses>
+            <ElectronicAddress>
+                <URI xml:lang="en">mailto:fixtures@eudistack.test</URI>
+            </ElectronicAddress>
+        </SchemeOperatorAddress>
+        <SchemeName>
+            <Name xml:lang="en">EUDIStack test fixture (mixed) — not a real EU List of Trusted Lists</Name>
+        </SchemeName>
+        <SchemeInformationURI>
+            <URI xml:lang="en">https://fixtures.eudistack.test/lotl-legalnotice.html</URI>
+        </SchemeInformationURI>
+        <StatusDeterminationApproach>http://uri.etsi.org/TrstSvc/TrustedList/StatusDetn/EUlistofthelists</StatusDeterminationApproach>
+        <SchemeTypeCommunityRules>
+            <URI xml:lang="en">http://uri.etsi.org/TrstSvc/TrustedList/schemerules/EUlistofthelists</URI>
+        </SchemeTypeCommunityRules>
+        <SchemeTerritory>EU</SchemeTerritory>
+        <PolicyOrLegalNotice>
+            <TSLLegalNotice xml:lang="en">Test fixture for EUD-227 (task 15). Not a real official EU List of Trusted Lists. Signed with a throwaway test certificate, never served from a real endpoint.</TSLLegalNotice>
+        </PolicyOrLegalNotice>
+        <HistoricalInformationPeriod>0</HistoricalInformationPeriod>
+        <PointersToOtherTSL>
+            <OtherTSLPointer>
+                <ServiceDigitalIdentities>
+                    <ServiceDigitalIdentity>
+                        <DigitalId>
+                            <X509Certificate>MIIDcDCCAligAwIBAgIIdNORgiZ20ukwDQYJKoZIhvcNAQELBQAwVjELMAkGA1UEBhMCRVMxHzAdBgNVBAoTFkVVRElTdGFjayBUZXN0IEZpeHR1cmUxJjAkBgNVBAMTHUVVRElTdGFjayBUZXN0IFRTTCBTaWduaW5nIENBMB4XDTI2MDgyNzEwMTgyN1oXDTM2MDgyNDEwMTgyN1owVjELMAkGA1UEBhMCRVMxHzAdBgNVBAoTFkVVRElTdGFjayBUZXN0IEZpeHR1cmUxJjAkBgNVBAMTHUVVRElTdGFjayBUZXN0IFRTTCBTaWduaW5nIENBMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAog+SyOxfbPHZAlPWH4fOh7kxvpqjOZui6OosRYVg72AzEkJJD8pMt+5Fu2AaA0VAVghevsaZE/G8qzXb7zzGHsIrvwOLqusYy8xNZnG9zkd8KYUmABq29ztvWeo7j+7mDnjK6J+KKdGJPoTS/f+3a7rMq0eyFDYiVLO6UngdYYegnB15LMbJi9Jq490+f2e88xOzEXXg5AEiq7z5ESELwJsh6u3a9FsydyJYYh9oXxKpo+LQbFsMyU2O/xMC0ZGsituk48gUZpoz3D0BQaMj8mXur46q7WDZLHqn9ZBu0yuNEWrbGmhbMOhku0vZ8g/qi8nqLgynICwWxubjQBxnbQIDAQABo0IwQDAdBgNVHQ4EFgQUqPb3lp5T80eu/szASg6ksgGf4S8wDgYDVR0PAQH/BAQDAgGGMA8GA1UdEwEB/wQFMAMBAf8wDQYJKoZIhvcNAQELBQADggEBACmR6l3hLG90tesTpmrQo5QPtr/a+jZmg+QwgnMaA9+JMK6Rm8fIc6WODWAew+FcUloWpiIQ6w2kmW7RgM3MX000em76P7CbHdiIy9ALgl2MasLZxVR7GS4W2BaXNF7gPYqBNwR2ULfhi/l12X1dkvbd3CoJnKRbT1r3hglK8lQWUvZCDv5zuzlbNjajq1oen2gLMPWASlvyyylDyeg/XOwjRWnCoaWOEb97s49gIUGePZwU/LAlHCnO518vtaHnC37++gPXva6J6t47EWaCzFZPgDkyKGHn1k5BngmFIb/9H4hzR2jKbPyv2MS/LUjdIW4/0bj19Y8bgeKC870GbDg=</X509Certificate>
+                        </DigitalId>
+                    </ServiceDigitalIdentity>
+                </ServiceDigitalIdentities>
+                <TSLLocation>http://tsl-fixtures/tl-national-b-valid.xml</TSLLocation>
+                <AdditionalInformation>
+                    <OtherInformation>
+                        <TSLType>http://uri.etsi.org/TrstSvc/TrustedList/TSLType/EUgeneric</TSLType>
+                    </OtherInformation>
+                    <OtherInformation>
+                        <SchemeTerritory>BB</SchemeTerritory>
+                    </OtherInformation>
+                    <OtherInformation>
+                        <ns3:MimeType>application/vnd.etsi.tsl+xml</ns3:MimeType>
+                    </OtherInformation>
+                </AdditionalInformation>
+            </OtherTSLPointer>
+            <OtherTSLPointer>
+                <ServiceDigitalIdentities>
+                    <ServiceDigitalIdentity>
+                        <DigitalId>
+                            <X509Certificate>MIIDcDCCAligAwIBAgIIdNORgiZ20ukwDQYJKoZIhvcNAQELBQAwVjELMAkGA1UEBhMCRVMxHzAdBgNVBAoTFkVVRElTdGFjayBUZXN0IEZpeHR1cmUxJjAkBgNVBAMTHUVVRElTdGFjayBUZXN0IFRTTCBTaWduaW5nIENBMB4XDTI2MDgyNzEwMTgyN1oXDTM2MDgyNDEwMTgyN1owVjELMAkGA1UEBhMCRVMxHzAdBgNVBAoTFkVVRElTdGFjayBUZXN0IEZpeHR1cmUxJjAkBgNVBAMTHUVVRElTdGFjayBUZXN0IFRTTCBTaWduaW5nIENBMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAog+SyOxfbPHZAlPWH4fOh7kxvpqjOZui6OosRYVg72AzEkJJD8pMt+5Fu2AaA0VAVghevsaZE/G8qzXb7zzGHsIrvwOLqusYy8xNZnG9zkd8KYUmABq29ztvWeo7j+7mDnjK6J+KKdGJPoTS/f+3a7rMq0eyFDYiVLO6UngdYYegnB15LMbJi9Jq490+f2e88xOzEXXg5AEiq7z5ESELwJsh6u3a9FsydyJYYh9oXxKpo+LQbFsMyU2O/xMC0ZGsituk48gUZpoz3D0BQaMj8mXur46q7WDZLHqn9ZBu0yuNEWrbGmhbMOhku0vZ8g/qi8nqLgynICwWxubjQBxnbQIDAQABo0IwQDAdBgNVHQ4EFgQUqPb3lp5T80eu/szASg6ksgGf4S8wDgYDVR0PAQH/BAQDAgGGMA8GA1UdEwEB/wQFMAMBAf8wDQYJKoZIhvcNAQELBQADggEBACmR6l3hLG90tesTpmrQo5QPtr/a+jZmg+QwgnMaA9+JMK6Rm8fIc6WODWAew+FcUloWpiIQ6w2kmW7RgM3MX000em76P7CbHdiIy9ALgl2MasLZxVR7GS4W2BaXNF7gPYqBNwR2ULfhi/l12X1dkvbd3CoJnKRbT1r3hglK8lQWUvZCDv5zuzlbNjajq1oen2gLMPWASlvyyylDyeg/XOwjRWnCoaWOEb97s49gIUGePZwU/LAlHCnO518vtaHnC37++gPXva6J6t47EWaCzFZPgDkyKGHn1k5BngmFIb/9H4hzR2jKbPyv2MS/LUjdIW4/0bj19Y8bgeKC870GbDg=</X509Certificate>
+                        </DigitalId>
+                    </ServiceDigitalIdentity>
+                </ServiceDigitalIdentities>
+                <TSLLocation>http://tsl-fixtures/tl-national-tampered.xml</TSLLocation>
+                <AdditionalInformation>
+                    <OtherInformation>
+                        <TSLType>http://uri.etsi.org/TrstSvc/TrustedList/TSLType/EUgeneric</TSLType>
+                    </OtherInformation>
+                    <OtherInformation>
+                        <SchemeTerritory>ZZ</SchemeTerritory>
+                    </OtherInformation>
+                    <OtherInformation>
+                        <ns3:MimeType>application/vnd.etsi.tsl+xml</ns3:MimeType>
+                    </OtherInformation>
+                </AdditionalInformation>
+            </OtherTSLPointer>
+            <OtherTSLPointer>
+                <ServiceDigitalIdentities>
+                    <ServiceDigitalIdentity>
+                        <DigitalId>
+                            <X509Certificate>MIIDcDCCAligAwIBAgIIdNORgiZ20ukwDQYJKoZIhvcNAQELBQAwVjELMAkGA1UEBhMCRVMxHzAdBgNVBAoTFkVVRElTdGFjayBUZXN0IEZpeHR1cmUxJjAkBgNVBAMTHUVVRElTdGFjayBUZXN0IFRTTCBTaWduaW5nIENBMB4XDTI2MDgyNzEwMTgyN1oXDTM2MDgyNDEwMTgyN1owVjELMAkGA1UEBhMCRVMxHzAdBgNVBAoTFkVVRElTdGFjayBUZXN0IEZpeHR1cmUxJjAkBgNVBAMTHUVVRElTdGFjayBUZXN0IFRTTCBTaWduaW5nIENBMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAog+SyOxfbPHZAlPWH4fOh7kxvpqjOZui6OosRYVg72AzEkJJD8pMt+5Fu2AaA0VAVghevsaZE/G8qzXb7zzGHsIrvwOLqusYy8xNZnG9zkd8KYUmABq29ztvWeo7j+7mDnjK6J+KKdGJPoTS/f+3a7rMq0eyFDYiVLO6UngdYYegnB15LMbJi9Jq490+f2e88xOzEXXg5AEiq7z5ESELwJsh6u3a9FsydyJYYh9oXxKpo+LQbFsMyU2O/xMC0ZGsituk48gUZpoz3D0BQaMj8mXur46q7WDZLHqn9ZBu0yuNEWrbGmhbMOhku0vZ8g/qi8nqLgynICwWxubjQBxnbQIDAQABo0IwQDAdBgNVHQ4EFgQUqPb3lp5T80eu/szASg6ksgGf4S8wDgYDVR0PAQH/BAQDAgGGMA8GA1UdEwEB/wQFMAMBAf8wDQYJKoZIhvcNAQELBQADggEBACmR6l3hLG90tesTpmrQo5QPtr/a+jZmg+QwgnMaA9+JMK6Rm8fIc6WODWAew+FcUloWpiIQ6w2kmW7RgM3MX000em76P7CbHdiIy9ALgl2MasLZxVR7GS4W2BaXNF7gPYqBNwR2ULfhi/l12X1dkvbd3CoJnKRbT1r3hglK8lQWUvZCDv5zuzlbNjajq1oen2gLMPWASlvyyylDyeg/XOwjRWnCoaWOEb97s49gIUGePZwU/LAlHCnO518vtaHnC37++gPXva6J6t47EWaCzFZPgDkyKGHn1k5BngmFIb/9H4hzR2jKbPyv2MS/LUjdIW4/0bj19Y8bgeKC870GbDg=</X509Certificate>
+                        </DigitalId>
+                    </ServiceDigitalIdentity>
+                </ServiceDigitalIdentities>
+                <TSLLocation>http://tsl-fixtures/tl-national-three-statuses.xml</TSLLocation>
+                <AdditionalInformation>
+                    <OtherInformation>
+                        <TSLType>http://uri.etsi.org/TrstSvc/TrustedList/TSLType/EUgeneric</TSLType>
+                    </OtherInformation>
+                    <OtherInformation>
+                        <SchemeTerritory>CC</SchemeTerritory>
+                    </OtherInformation>
+                    <OtherInformation>
+                        <ns3:MimeType>application/vnd.etsi.tsl+xml</ns3:MimeType>
+                    </OtherInformation>
+                </AdditionalInformation>
+            </OtherTSLPointer>
+            <OtherTSLPointer>
+                <ServiceDigitalIdentities>
+                    <ServiceDigitalIdentity>
+                        <DigitalId>
+                            <X509Certificate>MIIDcDCCAligAwIBAgIIdNORgiZ20ukwDQYJKoZIhvcNAQELBQAwVjELMAkGA1UEBhMCRVMxHzAdBgNVBAoTFkVVRElTdGFjayBUZXN0IEZpeHR1cmUxJjAkBgNVBAMTHUVVRElTdGFjayBUZXN0IFRTTCBTaWduaW5nIENBMB4XDTI2MDgyNzEwMTgyN1oXDTM2MDgyNDEwMTgyN1owVjELMAkGA1UEBhMCRVMxHzAdBgNVBAoTFkVVRElTdGFjayBUZXN0IEZpeHR1cmUxJjAkBgNVBAMTHUVVRElTdGFjayBUZXN0IFRTTCBTaWduaW5nIENBMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAog+SyOxfbPHZAlPWH4fOh7kxvpqjOZui6OosRYVg72AzEkJJD8pMt+5Fu2AaA0VAVghevsaZE/G8qzXb7zzGHsIrvwOLqusYy8xNZnG9zkd8KYUmABq29ztvWeo7j+7mDnjK6J+KKdGJPoTS/f+3a7rMq0eyFDYiVLO6UngdYYegnB15LMbJi9Jq490+f2e88xOzEXXg5AEiq7z5ESELwJsh6u3a9FsydyJYYh9oXxKpo+LQbFsMyU2O/xMC0ZGsituk48gUZpoz3D0BQaMj8mXur46q7WDZLHqn9ZBu0yuNEWrbGmhbMOhku0vZ8g/qi8nqLgynICwWxubjQBxnbQIDAQABo0IwQDAdBgNVHQ4EFgQUqPb3lp5T80eu/szASg6ksgGf4S8wDgYDVR0PAQH/BAQDAgGGMA8GA1UdEwEB/wQFMAMBAf8wDQYJKoZIhvcNAQELBQADggEBACmR6l3hLG90tesTpmrQo5QPtr/a+jZmg+QwgnMaA9+JMK6Rm8fIc6WODWAew+FcUloWpiIQ6w2kmW7RgM3MX000em76P7CbHdiIy9ALgl2MasLZxVR7GS4W2BaXNF7gPYqBNwR2ULfhi/l12X1dkvbd3CoJnKRbT1r3hglK8lQWUvZCDv5zuzlbNjajq1oen2gLMPWASlvyyylDyeg/XOwjRWnCoaWOEb97s49gIUGePZwU/LAlHCnO518vtaHnC37++gPXva6J6t47EWaCzFZPgDkyKGHn1k5BngmFIb/9H4hzR2jKbPyv2MS/LUjdIW4/0bj19Y8bgeKC870GbDg=</X509Certificate>
+                        </DigitalId>
+                    </ServiceDigitalIdentity>
+                </ServiceDigitalIdentities>
+                <TSLLocation>http://tsl-fixtures-unreachable/tl-does-not-exist.xml</TSLLocation>
+                <AdditionalInformation>
+                    <OtherInformation>
+                        <TSLType>http://uri.etsi.org/TrstSvc/TrustedList/TSLType/EUgeneric</TSLType>
+                    </OtherInformation>
+                    <OtherInformation>
+                        <SchemeTerritory>UU</SchemeTerritory>
+                    </OtherInformation>
+                    <OtherInformation>
+                        <ns3:MimeType>application/vnd.etsi.tsl+xml</ns3:MimeType>
+                    </OtherInformation>
+                </AdditionalInformation>
+            </OtherTSLPointer>
+        </PointersToOtherTSL>
+        <NextUpdate>
+            <dateTime>2030-01-01T00:00:00Z</dateTime>
+        </NextUpdate>
+        <ListIssueDateTime>2026-01-01T00:00:00Z</ListIssueDateTime>
+    </SchemeInformation>
+    <TrustServiceProviderList/>
+<ds:Signature xmlns:ds="http://www.w3.org/2000/09/xmldsig#" Id="id-8cf6acd2072b93beefae2c2f7587e005"><ds:SignedInfo><ds:CanonicalizationMethod Algorithm="http://www.w3.org/2001/10/xml-exc-c14n#"/><ds:SignatureMethod Algorithm="http://www.w3.org/2001/04/xmldsig-more#rsa-sha256"/><ds:Reference Id="r-id-8cf6acd2072b93beefae2c2f7587e005-1" URI=""><ds:Transforms><ds:Transform Algorithm="http://www.w3.org/2002/06/xmldsig-filter2"><dsig-filter2:XPath xmlns:dsig-filter2="http://www.w3.org/2002/06/xmldsig-filter2" Filter="subtract">/descendant::ds:Signature</dsig-filter2:XPath></ds:Transform><ds:Transform Algorithm="http://www.w3.org/2001/10/xml-exc-c14n#"/></ds:Transforms><ds:DigestMethod Algorithm="http://www.w3.org/2001/04/xmlenc#sha256"/><ds:DigestValue>TU/j3YD5VTAY/7IdnZ1saxelgwoPqFiuRhptbpyBLss=</ds:DigestValue></ds:Reference><ds:Reference Type="http://uri.etsi.org/01903#SignedProperties" URI="#xades-id-8cf6acd2072b93beefae2c2f7587e005"><ds:Transforms><ds:Transform Algorithm="http://www.w3.org/2001/10/xml-exc-c14n#"/></ds:Transforms><ds:DigestMethod Algorithm="http://www.w3.org/2001/04/xmlenc#sha256"/><ds:DigestValue>xtV9OS9FFIRCYtpFzaB7XajUs9nIEGsieFV/jvd4tCs=</ds:DigestValue></ds:Reference></ds:SignedInfo><ds:SignatureValue Id="value-id-8cf6acd2072b93beefae2c2f7587e005">LqNfr1MToq1lGpNRvirSptO8I090h2DjeOF3Po52CNM2awTdeMA972xVsSUHeRILnc0zFKCIRxLJ+TmIsxAzgQ4BfYeCDGbrW94NRYVKrOZNRC34yWtXZbvC1pG7BUjtvrWxljWhv6Io4ttf8dPpAPxp5m94Qah3dbvwewgreW9QekpfBHT6IP9fMGOzfl43btMxwt7YHt+v0JXRII3BgEyFZVp7K8//c1TT+BMRJJtNOPjBbQUqb34VWH4mIWFATWdzRdYtGNOpqCDM9HQmbzpb7KsBIh6XPK1iF72ncgSan6l9e1u5Due2sqr65XzATpWrFCKoe6X14sIsOtsoug==</ds:SignatureValue><ds:KeyInfo><ds:X509Data><ds:X509Certificate>MIIDcDCCAligAwIBAgIIdNORgiZ20ukwDQYJKoZIhvcNAQELBQAwVjELMAkGA1UEBhMCRVMxHzAdBgNVBAoTFkVVRElTdGFjayBUZXN0IEZpeHR1cmUxJjAkBgNVBAMTHUVVRElTdGFjayBUZXN0IFRTTCBTaWduaW5nIENBMB4XDTI2MDgyNzEwMTgyN1oXDTM2MDgyNDEwMTgyN1owVjELMAkGA1UEBhMCRVMxHzAdBgNVBAoTFkVVRElTdGFjayBUZXN0IEZpeHR1cmUxJjAkBgNVBAMTHUVVRElTdGFjayBUZXN0IFRTTCBTaWduaW5nIENBMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAog+SyOxfbPHZAlPWH4fOh7kxvpqjOZui6OosRYVg72AzEkJJD8pMt+5Fu2AaA0VAVghevsaZE/G8qzXb7zzGHsIrvwOLqusYy8xNZnG9zkd8KYUmABq29ztvWeo7j+7mDnjK6J+KKdGJPoTS/f+3a7rMq0eyFDYiVLO6UngdYYegnB15LMbJi9Jq490+f2e88xOzEXXg5AEiq7z5ESELwJsh6u3a9FsydyJYYh9oXxKpo+LQbFsMyU2O/xMC0ZGsituk48gUZpoz3D0BQaMj8mXur46q7WDZLHqn9ZBu0yuNEWrbGmhbMOhku0vZ8g/qi8nqLgynICwWxubjQBxnbQIDAQABo0IwQDAdBgNVHQ4EFgQUqPb3lp5T80eu/szASg6ksgGf4S8wDgYDVR0PAQH/BAQDAgGGMA8GA1UdEwEB/wQFMAMBAf8wDQYJKoZIhvcNAQELBQADggEBACmR6l3hLG90tesTpmrQo5QPtr/a+jZmg+QwgnMaA9+JMK6Rm8fIc6WODWAew+FcUloWpiIQ6w2kmW7RgM3MX000em76P7CbHdiIy9ALgl2MasLZxVR7GS4W2BaXNF7gPYqBNwR2ULfhi/l12X1dkvbd3CoJnKRbT1r3hglK8lQWUvZCDv5zuzlbNjajq1oen2gLMPWASlvyyylDyeg/XOwjRWnCoaWOEb97s49gIUGePZwU/LAlHCnO518vtaHnC37++gPXva6J6t47EWaCzFZPgDkyKGHn1k5BngmFIb/9H4hzR2jKbPyv2MS/LUjdIW4/0bj19Y8bgeKC870GbDg=</ds:X509Certificate></ds:X509Data></ds:KeyInfo><ds:Object><xades:QualifyingProperties xmlns:xades="http://uri.etsi.org/01903/v1.3.2#" Target="#id-8cf6acd2072b93beefae2c2f7587e005"><xades:SignedProperties Id="xades-id-8cf6acd2072b93beefae2c2f7587e005"><xades:SignedSignatureProperties><xades:SigningTime>2026-08-27T11:47:24Z</xades:SigningTime><xades:SigningCertificateV2><xades:Cert><xades:CertDigest><ds:DigestMethod Algorithm="http://www.w3.org/2001/04/xmlenc#sha512"/><ds:DigestValue>vh7h9ecGyvDd0XscvFo+eszodlGsp0In4swaVX1cl9RsIuI+u0dgP3FGCYDbGq+UpyQD8ZIkCUmbsrBvz5UVlQ==</ds:DigestValue></xades:CertDigest><xades:IssuerSerialV2>MGYwWqRYMFYxCzAJBgNVBAYTAkVTMR8wHQYDVQQKExZFVURJU3RhY2sgVGVzdCBGaXh0dXJlMSYwJAYDVQQDEx1FVURJU3RhY2sgVGVzdCBUU0wgU2lnbmluZyBDQQIIdNORgiZ20uk=</xades:IssuerSerialV2></xades:Cert></xades:SigningCertificateV2></xades:SignedSignatureProperties><xades:SignedDataObjectProperties><xades:DataObjectFormat ObjectReference="#r-id-8cf6acd2072b93beefae2c2f7587e005-1"><xades:MimeType>text/xml</xades:MimeType></xades:DataObjectFormat></xades:SignedDataObjectProperties></xades:SignedProperties></xades:QualifyingProperties></ds:Object></ds:Signature></TrustServiceStatusList>

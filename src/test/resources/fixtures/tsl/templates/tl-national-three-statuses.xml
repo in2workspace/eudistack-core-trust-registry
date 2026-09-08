@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<TrustServiceStatusList xmlns="http://uri.etsi.org/02231/v2#"
+                         xmlns:ns2="http://www.w3.org/2000/09/xmldsig#"
+                         xmlns:ns3="http://uri.etsi.org/02231/v2/additionaltypes#"
+                         xmlns:ns4="http://uri.etsi.org/01903/v1.3.2#"
+                         Id="EUDISTACK-TEST-TL-CC" TSLTag="http://uri.etsi.org/19612/TSLTag">
+    <SchemeInformation>
+        <TSLVersionIdentifier>5</TSLVersionIdentifier>
+        <TSLSequenceNumber>1</TSLSequenceNumber>
+        <TSLType>http://uri.etsi.org/TrstSvc/TrustedList/TSLType/EUgeneric</TSLType>
+        <SchemeOperatorName>
+            <Name xml:lang="en">EUDIStack Test Fixture Operator CC</Name>
+        </SchemeOperatorName>
+        <SchemeOperatorAddress>
+            <PostalAddresses>
+                <PostalAddress xml:lang="en">
+                    <StreetAddress>Fixture Street 1</StreetAddress>
+                    <Locality>Test City</Locality>
+                    <PostalCode>00000</PostalCode>
+                    <CountryName>CC</CountryName>
+                </PostalAddress>
+            </PostalAddresses>
+            <ElectronicAddress>
+                <URI xml:lang="en">mailto:fixtures-cc@eudistack.test</URI>
+            </ElectronicAddress>
+        </SchemeOperatorAddress>
+        <SchemeName>
+            <Name xml:lang="en">CC:EUDIStack test fixture — not a real national Trusted List</Name>
+        </SchemeName>
+        <SchemeInformationURI>
+            <URI xml:lang="en">https://fixtures.eudistack.test/tl-cc-legalnotice.html</URI>
+        </SchemeInformationURI>
+        <StatusDeterminationApproach>http://uri.etsi.org/TrstSvc/TrustedList/StatusDetn/EUappropriate</StatusDeterminationApproach>
+        <SchemeTypeCommunityRules>
+            <URI xml:lang="en">http://uri.etsi.org/TrstSvc/TrustedList/schemerules/EUcommon</URI>
+        </SchemeTypeCommunityRules>
+        <SchemeTerritory>CC</SchemeTerritory>
+        <PolicyOrLegalNotice>
+            <TSLLegalNotice xml:lang="en">Test fixture for EUD-227 (AC-03). Not a real official national Trusted List. Signed with a throwaway test certificate, never served from a real endpoint. Contains three services in three different statuses to exercise usability evaluation.</TSLLegalNotice>
+        </PolicyOrLegalNotice>
+        <HistoricalInformationPeriod>65535</HistoricalInformationPeriod>
+        <NextUpdate>
+            <dateTime>{{NEXT_UPDATE}}</dateTime>
+        </NextUpdate>
+        <ListIssueDateTime>{{ISSUE_DATE}}</ListIssueDateTime>
+    </SchemeInformation>
+    <TrustServiceProviderList>
+        <TrustServiceProvider>
+            <TSPInformation>
+                <TSPName>
+                    <Name xml:lang="en">EUDIStack Test Qualified Provider CC</Name>
+                </TSPName>
+                <TSPTradeName>
+                    <Name xml:lang="en">Test Provider CC</Name>
+                </TSPTradeName>
+                <TSPAddress>
+                    <PostalAddresses>
+                        <PostalAddress xml:lang="en">
+                            <StreetAddress>Fixture Street 1</StreetAddress>
+                            <Locality>Test City</Locality>
+                            <PostalCode>00000</PostalCode>
+                            <CountryName>CC</CountryName>
+                        </PostalAddress>
+                    </PostalAddresses>
+                    <ElectronicAddress>
+                        <URI xml:lang="en">mailto:provider-cc@eudistack.test</URI>
+                    </ElectronicAddress>
+                </TSPAddress>
+                <TSPInformationURI>
+                    <URI xml:lang="en">https://fixtures.eudistack.test/provider-cc.html</URI>
+                </TSPInformationURI>
+            </TSPInformation>
+            <TSPServices>
+                <!-- Service 1: granted — the only one AC-03 expects to be usable "now". -->
+                <TSPService>
+                    <ServiceInformation>
+                        <ServiceTypeIdentifier>http://uri.etsi.org/TrstSvc/Svctype/CA/QC</ServiceTypeIdentifier>
+                        <ServiceName>
+                            <Name xml:lang="en">EUDIStack Test Qualified CA CC — Granted</Name>
+                        </ServiceName>
+                        <ServiceDigitalIdentity>
+                            <DigitalId>
+                                <X509Certificate>{{GRANTED_SERVICE_CERTIFICATE_BASE64}}</X509Certificate>
+                            </DigitalId>
+                        </ServiceDigitalIdentity>
+                        <ServiceStatus>http://uri.etsi.org/TrstSvc/TrustedList/Svcstatus/granted</ServiceStatus>
+                        <StatusStartingTime>{{STATUS_STARTING_TIME}}</StatusStartingTime>
+                    </ServiceInformation>
+                </TSPService>
+                <!-- Service 2: withdrawn — post-eIDAS status; preserved, never dropped (AD-4). -->
+                <TSPService>
+                    <ServiceInformation>
+                        <ServiceTypeIdentifier>http://uri.etsi.org/TrstSvc/Svctype/CA/QC</ServiceTypeIdentifier>
+                        <ServiceName>
+                            <Name xml:lang="en">EUDIStack Test Qualified CA CC — Withdrawn</Name>
+                        </ServiceName>
+                        <ServiceDigitalIdentity>
+                            <DigitalId>
+                                <X509Certificate>{{WITHDRAWN_SERVICE_CERTIFICATE_BASE64}}</X509Certificate>
+                            </DigitalId>
+                        </ServiceDigitalIdentity>
+                        <ServiceStatus>http://uri.etsi.org/TrstSvc/TrustedList/Svcstatus/withdrawn</ServiceStatus>
+                        <StatusStartingTime>{{STATUS_STARTING_TIME}}</StatusStartingTime>
+                    </ServiceInformation>
+                </TSPService>
+                <!--
+                  Service 3: substitution for the literally-described "servicio suspendido".
+                  ETSI TS 119 612 defines no "suspended" status URI, pre- or post-eIDAS (verified
+                  against DSS 6.4's TrustServiceStatus enum). "supervisionrevoked" is the closest
+                  honest analog: a real, DSS-recognised, non-granted legacy status distinct from
+                  "withdrawn" — see fixtures/tsl/README.md and tasks.md task 13 Notes for the
+                  full resolution, approved by the coordinator instead of fabricating a URI DSS
+                  would not recognise.
+                -->
+                <TSPService>
+                    <ServiceInformation>
+                        <ServiceTypeIdentifier>http://uri.etsi.org/TrstSvc/Svctype/CA/QC</ServiceTypeIdentifier>
+                        <ServiceName>
+                            <Name xml:lang="en">EUDIStack Test Qualified CA CC — Supervision Revoked</Name>
+                        </ServiceName>
+                        <ServiceDigitalIdentity>
+                            <DigitalId>
+                                <X509Certificate>{{LEGACY_STATUS_SERVICE_CERTIFICATE_BASE64}}</X509Certificate>
+                            </DigitalId>
+                        </ServiceDigitalIdentity>
+                        <ServiceStatus>http://uri.etsi.org/TrstSvc/TrustedList/Svcstatus/supervisionrevoked</ServiceStatus>
+                        <StatusStartingTime>{{STATUS_STARTING_TIME}}</StatusStartingTime>
+                    </ServiceInformation>
+                </TSPService>
+            </TSPServices>
+        </TrustServiceProvider>
+    </TrustServiceProviderList>
+</TrustServiceStatusList>

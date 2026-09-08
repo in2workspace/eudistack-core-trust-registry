@@ -1,21 +1,33 @@
 package es.in2.trustregistry.anchors.application;
 
+import es.in2.trustregistry.anchors.domain.model.ListRejection;
+import es.in2.trustregistry.anchors.domain.model.ListRejection.RejectionReason;
+import es.in2.trustregistry.anchors.domain.model.SyncOutcome;
 import es.in2.trustregistry.anchors.domain.model.TrustAnchor;
+import es.in2.trustregistry.anchors.domain.model.TrustAnchorSet;
 import es.in2.trustregistry.anchors.domain.model.TrustServiceStatus;
 import es.in2.trustregistry.anchors.domain.port.OfficialTrustListPort;
 import es.in2.trustregistry.anchors.domain.port.TrustAnchorRepositoryPort;
+import es.in2.trustregistry.anchors.infrastructure.adapter.memory.InMemoryTrustAnchorRepository;
+import org.assertj.core.groups.Tuple;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
+import org.mockito.ArgumentMatchers;
 import org.mockito.Captor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.time.Clock;
 import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -23,6 +35,7 @@ import static org.mockito.Mockito.when;
 class TrustAnchorSyncServiceTest {
 
     private static final Instant EFFECTIVE = Instant.parse("2026-01-01T00:00:00Z");
+    private static final Instant SYNC_INSTANT = Instant.parse("2026-08-27T10:00:00Z");
 
     @Mock
     private OfficialTrustListPort officialTrustList;
@@ -31,61 +44,250 @@ class TrustAnchorSyncServiceTest {
     private TrustAnchorRepositoryPort repository;
 
     @Captor
-    private ArgumentCaptor<List<TrustAnchor>> storedAnchors;
+    private ArgumentCaptor<TrustAnchorSet> storedAnchorSet;
 
     private TrustAnchorSyncService service;
 
     @BeforeEach
     void setUp() {
-        service = new TrustAnchorSyncService(officialTrustList, repository);
+        Clock clock = Clock.fixed(SYNC_INSTANT, ZoneOffset.UTC);
+        service = new TrustAnchorSyncService(officialTrustList, repository, clock);
     }
 
     private static TrustAnchor anchor(String subject, TrustServiceStatus status) {
-        return new TrustAnchor(subject, "pem", "ES", "serviceType", status, EFFECTIVE);
+        return new TrustAnchor(subject, "pem", "ES", "serviceType", status, EFFECTIVE, null);
     }
 
     @Test
-    void synchronise_MixedStatuses_StoresOnlyGrantedAnchors() {
-        // Arrange
-        when(officialTrustList.fetchAnchors()).thenReturn(List.of(
+    void synchronise_MixedStatuses_StoresEveryAnchorWithItsStatusAndTheSyncInstant() {
+        // Arrange: nothing is dropped here. An anchor that is no longer granted still answers
+        // whether the service was qualified at the date of a past act, and filtering at this
+        // point would destroy that. Usability is resolved on query, not on synchronisation.
+        SyncOutcome outcome = new SyncOutcome(List.of(
                 anchor("CN=Granted", TrustServiceStatus.GRANTED),
                 anchor("CN=Withdrawn", TrustServiceStatus.WITHDRAWN),
-                anchor("CN=Suspended", TrustServiceStatus.SUSPENDED)));
+                anchor("CN=Suspended", TrustServiceStatus.SUSPENDED)), List.of());
+        when(officialTrustList.fetchAnchors()).thenReturn(outcome);
 
         // Act
-        int stored = service.synchronise();
+        SyncOutcome result = service.synchronise();
 
         // Assert
-        assertThat(stored).isEqualTo(1);
-        verify(repository).replaceAll(storedAnchors.capture());
-        assertThat(storedAnchors.getValue())
+        assertThat(result).isSameAs(outcome);
+        verify(repository).replaceAll(storedAnchorSet.capture());
+        TrustAnchorSet stored = storedAnchorSet.getValue();
+        assertThat(stored.anchors())
                 .extracting(TrustAnchor::subject)
-                .containsExactly("CN=Granted");
+                .containsExactly("CN=Granted", "CN=Withdrawn", "CN=Suspended");
+        assertThat(stored.lastSuccessfulSyncAt()).isEqualTo(SYNC_INSTANT);
+        assertThat(stored.isNeverSynced()).isFalse();
     }
 
     @Test
-    void synchronise_SourceReturnsNothing_StoresAnEmptySet() {
-        // Arrange
-        when(officialTrustList.fetchAnchors()).thenReturn(List.of());
+    void synchronise_SourceReturnsNothing_StoresASyncedEmptySetNotANeverSyncedOne() {
+        // Arrange: EC-04 distinguishes "synced and empty" from "never synced" — a successful
+        // run that found no anchors is still a dated outcome.
+        SyncOutcome outcome = new SyncOutcome(List.of(), List.of());
+        when(officialTrustList.fetchAnchors()).thenReturn(outcome);
 
         // Act
-        int stored = service.synchronise();
+        service.synchronise();
 
         // Assert
-        assertThat(stored).isZero();
-        verify(repository).replaceAll(List.of());
+        verify(repository).replaceAll(storedAnchorSet.capture());
+        TrustAnchorSet stored = storedAnchorSet.getValue();
+        assertThat(stored.anchors()).isEmpty();
+        assertThat(stored.isNeverSynced()).isFalse();
+        assertThat(stored.lastSuccessfulSyncAt()).isEqualTo(SYNC_INSTANT);
     }
 
     @Test
-    void currentAnchors_RepositoryHoldsAnchors_ReturnsThem() {
+    void synchronise_ListRejected_PropagatesTheRejectionInTheReturnedOutcome() {
+        // Arrange: ES-03/AC-02 — the caller must learn about a rejected list, not just anchors.
+        ListRejection rejection = new ListRejection("ES", RejectionReason.SIGNATURE_INVALID,
+                "signature does not verify");
+        SyncOutcome outcome = new SyncOutcome(List.of(anchor("CN=Other", TrustServiceStatus.GRANTED)),
+                List.of(rejection));
+        when(officialTrustList.fetchAnchors()).thenReturn(outcome);
+
+        // Act
+        SyncOutcome result = service.synchronise();
+
+        // Assert
+        assertThat(result.rejections()).containsExactly(rejection);
+        assertThat(result.hasRejections()).isTrue();
+    }
+
+    @Test
+    void synchronise_SourceFailsMidRun_LeavesThePreviousSetUntouched() {
+        // Arrange: ES-03 — a failure never reaches replaceAll, so the previous set survives
+        // without any explicit rollback.
+        when(officialTrustList.fetchAnchors()).thenThrow(new IllegalStateException("LOTL unreachable"));
+
+        // Act & Assert
+        assertThatThrownBy(() -> service.synchronise()).isInstanceOf(IllegalStateException.class);
+        verify(repository, never()).replaceAll(ArgumentMatchers.any());
+    }
+
+    @Test
+    void synchronise_ServiceNoLongerGrantedInTheNextSync_AnchorLeavesTheServedSet() {
+        // Arrange: EC-03 — a service that was granted at the previous sync is withdrawn (or
+        // simply absent) in the next one; the served set must reflect the new outcome only.
+        SyncOutcome firstOutcome = new SyncOutcome(
+                List.of(anchor("CN=StillGranted", TrustServiceStatus.GRANTED),
+                        anchor("CN=NowWithdrawn", TrustServiceStatus.GRANTED)), List.of());
+        when(officialTrustList.fetchAnchors()).thenReturn(firstOutcome);
+        service.synchronise();
+
+        SyncOutcome secondOutcome = new SyncOutcome(List.of(
+                anchor("CN=StillGranted", TrustServiceStatus.GRANTED),
+                anchor("CN=NowWithdrawn", TrustServiceStatus.WITHDRAWN)), List.of());
+        when(officialTrustList.fetchAnchors()).thenReturn(secondOutcome);
+
+        // Act
+        service.synchronise();
+
+        // Assert: the withdrawn service's anchor is stored, but it is not usable any more —
+        // the served set moved on from the first sync's outcome to the second's.
+        verify(repository, times(2)).replaceAll(storedAnchorSet.capture());
+        TrustAnchorSet stored = storedAnchorSet.getValue();
+        assertThat(stored.anchors())
+                .extracting(TrustAnchor::subject, TrustAnchor::status)
+                .containsExactly(
+                        Tuple.tuple("CN=StillGranted", TrustServiceStatus.GRANTED),
+                        Tuple.tuple("CN=NowWithdrawn", TrustServiceStatus.WITHDRAWN));
+    }
+
+    @Test
+    void synchronise_FailsMidRunAgainstARealRepository_PreviousSetSurvivesAndTheNextSyncRecovers() {
+        // Arrange: ES-03 end to end against a real (non-mocked) repository — a previously
+        // served set must remain fully queryable after a failed sync, with no partial
+        // corruption, and the following synchronisation must succeed normally.
+        InMemoryTrustAnchorRepository realRepository = new InMemoryTrustAnchorRepository();
+        Clock clock = Clock.fixed(SYNC_INSTANT, ZoneOffset.UTC);
+        TrustAnchorSyncService serviceWithRealRepository =
+                new TrustAnchorSyncService(officialTrustList, realRepository, clock);
+
+        TrustAnchor previouslyServed = anchor("CN=PreviouslyServed", TrustServiceStatus.GRANTED);
+        TrustAnchor recovered = anchor("CN=Recovered", TrustServiceStatus.GRANTED);
+        when(officialTrustList.fetchAnchors())
+                .thenReturn(new SyncOutcome(List.of(previouslyServed), List.of()))
+                .thenThrow(new IllegalStateException("LOTL unreachable"))
+                .thenReturn(new SyncOutcome(List.of(recovered), List.of()));
+        serviceWithRealRepository.synchronise();
+
+        // Act & Assert: the failed sync leaves the previous set exactly as it was.
+        assertThatThrownBy(serviceWithRealRepository::synchronise).isInstanceOf(IllegalStateException.class);
+        assertThat(serviceWithRealRepository.currentAnchors()).containsExactly(previouslyServed);
+
+        // Act & Assert: the next synchronisation runs normally and replaces the set.
+        serviceWithRealRepository.synchronise();
+        assertThat(serviceWithRealRepository.currentAnchors()).containsExactly(recovered);
+    }
+
+    @Test
+    void applyOutcome_FirstEverAttemptWithNoAnchorsAndRejections_LeavesTheRepositoryNeverSynced() {
+        // Arrange: EC-04 fix — every attempted list failed (no source reachable/verified, no
+        // cache to fall back on) on a repository that has never completed a successful sync.
+        // This must NOT fabricate a first successful-sync instant from nothing.
+        ListRejection rejection = new ListRejection("https://tsl-fixtures/lotl.xml",
+                RejectionReason.UNREACHABLE, "no cached entry available");
+        SyncOutcome outcome = new SyncOutcome(List.of(), List.of(rejection));
+
+        // Act
+        service.applyOutcome(outcome);
+
+        // Assert
+        verify(repository, never()).replaceAll(ArgumentMatchers.any());
+    }
+
+    @Test
+    void applyOutcome_FirstEverAttemptWithNoAnchorsAndNoRejections_StoresASyncedEmptySet() {
+        // Arrange: a genuinely empty but successful outcome (every attempted list verified and
+        // legitimately lists nothing) is a real, dated result (TrustAnchorSet's own
+        // never-synced-vs-synced-empty distinction) — it must still stamp a fresh instant,
+        // exactly as synchronise_SourceReturnsNothing_StoresASyncedEmptySetNotANeverSyncedOne
+        // already proves through synchronise(); this proves the same through applyOutcome().
+        SyncOutcome outcome = new SyncOutcome(List.of(), List.of());
+
+        // Act
+        service.applyOutcome(outcome);
+
+        // Assert
+        verify(repository).replaceAll(storedAnchorSet.capture());
+        TrustAnchorSet stored = storedAnchorSet.getValue();
+        assertThat(stored.anchors()).isEmpty();
+        assertThat(stored.isNeverSynced()).isFalse();
+        assertThat(stored.lastSuccessfulSyncAt()).isEqualTo(SYNC_INSTANT);
+    }
+
+    @Test
+    void applyOutcome_AlreadySyncedRepositoryReceivesAFullyFailedAttempt_KeepsTheOldAnchorsAndInstant() {
+        // Arrange: EC-04 fix's other half — a repository that was already successfully synced
+        // must not be wiped or re-dated by a subsequent attempt where every list failed; the
+        // previous, genuinely successful sync stays in force untouched (AD-3's "serve stale
+        // rather than empty", extended to "a failed refresh is not applied at all").
+        InMemoryTrustAnchorRepository realRepository = new InMemoryTrustAnchorRepository();
+        Clock clock = Clock.fixed(SYNC_INSTANT, ZoneOffset.UTC);
+        TrustAnchorSyncService serviceWithRealRepository =
+                new TrustAnchorSyncService(officialTrustList, realRepository, clock);
+        TrustAnchor previouslyServed = anchor("CN=PreviouslyServed", TrustServiceStatus.GRANTED);
+        serviceWithRealRepository.applyOutcome(new SyncOutcome(List.of(previouslyServed), List.of()));
+        TrustAnchorSet beforeFailedAttempt = realRepository.current();
+
+        // Act: every list fails on the next attempt.
+        ListRejection rejection = new ListRejection("https://tsl-fixtures/lotl.xml",
+                RejectionReason.UNREACHABLE, "unreachable");
+        serviceWithRealRepository.applyOutcome(new SyncOutcome(List.of(), List.of(rejection)));
+
+        // Assert: the served set is exactly what it was before the failed attempt.
+        assertThat(realRepository.current()).isEqualTo(beforeFailedAttempt);
+        assertThat(realRepository.current().anchors()).containsExactly(previouslyServed);
+        assertThat(realRepository.current().lastSuccessfulSyncAt()).isEqualTo(SYNC_INSTANT);
+    }
+
+    @Test
+    void applyOutcome_PreFetchedOutcome_ReplacesTheServedSetAtomicallyWithTheSyncInstant() {
+        // Arrange: AC-05 — the startup cache-only refresh (TrustAnchorSyncScheduler) fetches its
+        // own SyncOutcome via the adapter directly, then hands it here so the served repository
+        // is genuinely populated, using the same "build a set, replace atomically" step as
+        // synchronise() (AC-07), without duplicating it in the scheduler.
+        TrustAnchor anchor = anchor("CN=Cached", TrustServiceStatus.GRANTED);
+        SyncOutcome outcome = new SyncOutcome(List.of(anchor), List.of());
+
+        // Act
+        service.applyOutcome(outcome);
+
+        // Assert
+        verify(repository).replaceAll(storedAnchorSet.capture());
+        TrustAnchorSet stored = storedAnchorSet.getValue();
+        assertThat(stored.anchors()).containsExactly(anchor);
+        assertThat(stored.lastSuccessfulSyncAt()).isEqualTo(SYNC_INSTANT);
+        assertThat(stored.isNeverSynced()).isFalse();
+    }
+
+    @Test
+    void currentAnchors_RepositoryHoldsASyncedSet_ReturnsItsAnchors() {
         // Arrange
         TrustAnchor granted = anchor("CN=Granted", TrustServiceStatus.GRANTED);
-        when(repository.findAll()).thenReturn(List.of(granted));
+        when(repository.current()).thenReturn(new TrustAnchorSet(List.of(granted), SYNC_INSTANT));
 
         // Act
         List<TrustAnchor> anchors = service.currentAnchors();
 
         // Assert
         assertThat(anchors).containsExactly(granted);
+    }
+
+    @Test
+    void currentAnchors_RepositoryNeverSynced_ReturnsAnEmptyList() {
+        // Arrange
+        when(repository.current()).thenReturn(TrustAnchorSet.neverSynced());
+
+        // Act
+        List<TrustAnchor> anchors = service.currentAnchors();
+
+        // Assert
+        assertThat(anchors).isEmpty();
     }
 }
