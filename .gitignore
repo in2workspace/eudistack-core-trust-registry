@@ -37,6 +37,10 @@ out/
 ### VS Code ###
 .vscode/
 
+### Claude Code ###
+.claude/agent-memory/
+.claude/worktrees/
+
 ### Docker ###
 docker/.env
 !docker/.env.example
