@@ -66,7 +66,7 @@ dependencies {
     implementation 'org.bouncycastle:bcpkix-jdk18on:1.85'
 
     // --- Documentation ---
-    implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.5.0'
+    implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:3.1.0'
 
     // --- Caching ---
     implementation 'com.github.ben-manes.caffeine:caffeine'
