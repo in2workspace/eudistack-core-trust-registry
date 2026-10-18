@@ -16,6 +16,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
@@ -45,14 +46,15 @@ class TrustSnapshotServiceTest {
     void setUp() {
         TrustRegistryProperties properties = new TrustRegistryProperties(
                 "https://ec.europa.eu/tools/lotl/eu-lotl.xml", "classpath:keystore/oj-keystore.p12",
-                "/var/cache/trust-registry", 86400);
+                "/var/cache/trust-registry", 86400, Duration.ofHours(24),
+                new TrustRegistryProperties.Sync(Duration.ofSeconds(10), Duration.ofHours(6)));
         service = new TrustSnapshotService(anchorService, entityService, signer, properties,
                 Clock.fixed(NOW, ZoneOffset.UTC));
     }
 
     private static TrustAnchor anchor() {
         return new TrustAnchor("CN=Test CA", "pem", "ES", "serviceType",
-                TrustServiceStatus.GRANTED, NOW.minusSeconds(86400));
+                TrustServiceStatus.GRANTED, NOW.minusSeconds(86400), null);
     }
 
     private static TrustedEntity entity() {

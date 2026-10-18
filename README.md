@@ -33,9 +33,10 @@ Consumers keep taking the decision themselves: the registry distributes anchors,
 the critical path of every credential presentation. That is what keeps the Verifier fast and the
 offline proximity validator usable. The reasoning is in [docs/architecture.md](docs/architecture.md).
 
-> **Status: scaffolding.** The package layout, the API surface and the dependency set are in place;
-> the DSS synchronisation adapter is a stub, persistence is in memory and the signing key is
-> generated at startup. See the roadmap in [docs/architecture.md](docs/architecture.md#6-roadmap).
+> **Status: partial.** Official-anchor synchronisation (EU LOTL + national Trusted Lists, via DSS)
+> is implemented, including offline-cache startup and scheduled online refresh. Persistence is
+> still in memory and the signing key is still generated at startup. See the roadmap in
+> [docs/architecture.md](docs/architecture.md#6-roadmap).
 
 ## Who consumes it
 
@@ -79,7 +80,13 @@ while working on the registry itself:
 docker compose up --build      # http://localhost:8085
 ./gradlew build                # compile, test, checkstyle, coverage
 ./gradlew bootRun              # only for quick local iteration
+./gradlew integrationTest      # Testcontainers image tests (tag "container"), minutes-scale
 ```
+
+`TRUST_REGISTRY_CACHE_DIR` defaults to `/var/cache/trust-registry`, which only exists inside the
+container. Running outside Docker (`bootRun`, or `./gradlew test`/`check` on a bare host shell),
+point it at a writable local directory, e.g. `TRUST_REGISTRY_CACHE_DIR=/tmp/trust-registry-cache`,
+or the application fails to start with `IllegalStateException`.
 
 ## Configuration
 
@@ -87,10 +94,24 @@ docker compose up --build      # http://localhost:8085
 |----------|---------|---------|
 | `SERVER_PORT` | `8085` | HTTP port |
 | `TRUST_REGISTRY_LOTL_URL` | EU LOTL | List of Trusted Lists to synchronise |
-| `TRUST_REGISTRY_KEYSTORE_PATH` | bundled | Certificates allowed to sign the LOTL |
-| `TRUST_REGISTRY_CACHE_DIR` | `/var/cache/trust-registry` | Offline cache of synchronised lists |
+| `TRUST_REGISTRY_KEYSTORE_PATH` | bundled | Certificates allowed to sign the LOTL, validated at startup (`ES-01`) — see [docs/architecture.md](docs/architecture.md#33-known-risks-from-official-anchor-synchronisation-eud-227) for a known staleness risk in the bundled default |
+| `TRUST_REGISTRY_CACHE_DIR` | `/var/cache/trust-registry` | Offline cache of synchronised lists, read on startup with no network (`AC-05`) |
 | `TRUST_REGISTRY_SNAPSHOT_TTL` | `86400` | Seconds a snapshot stays usable offline |
-| `TRUST_REGISTRY_SYNC_INTERVAL` | `PT6H` | Interval between synchronisations |
+| `TRUST_REGISTRY_MAX_AGE` | `PT24H` | Maximum age a successful synchronisation may reach before the anchor set is flagged stale; the set is kept, never emptied, past this age (`AC-06`) |
+| `TRUST_REGISTRY_SYNC_INITIAL_DELAY` | `PT10S` | Delay after startup before the first scheduled online refresh |
+| `TRUST_REGISTRY_SYNC_INTERVAL` | `PT6H` | Interval between scheduled online refreshes thereafter |
+
+## Observability
+
+Synchronisation exposes the following Micrometer metrics on `/actuator/prometheus`:
+
+| Metric | Type | Tags | Meaning |
+|--------|------|------|---------|
+| `trust_registry.anchor_sync.result` | counter | `trigger` (`scheduled` or `startup_cache`), `outcome` (`success` or `failure`) | One increment per synchronisation attempt |
+| `trust_registry.anchor_sync.rejections` | counter | `trigger`, `reason` (`SIGNATURE_INVALID` or `UNREACHABLE`) | One increment per rejected list; never tagged with the list identifier, to keep cardinality bounded |
+| `trust_registry.anchor_sync.stale_next_update` | counter | `trigger` | One increment per list accepted despite a `NextUpdate` already in the past |
+| `trust_registry.anchor_set.age_seconds` | gauge | — | Age of the currently served anchor set, read live on every scrape |
+| `trust_registry.anchor_set.never_synced` | gauge | — | `1` until the first successful synchronisation, `0` after |
 
 ## Contributing
 

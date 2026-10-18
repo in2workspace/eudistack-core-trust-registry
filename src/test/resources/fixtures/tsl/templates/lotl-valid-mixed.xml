@@ -1,0 +1,152 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  EUD-227, task 15 addendum to task 13's fixture set (see fixtures/tsl/README.md and
+  tasks.md task 13 Notes addendum for the full rationale).
+
+  Task 13's lotl-valid.xml only ever points at tl-national-a-valid.xml and
+  tl-national-b-valid.xml, both granted-only and both valid — it cannot exercise AC-02
+  ("one national list tampered, the LOTL and the other lists are fine, sync continues"),
+  AC-03 through the real DSS pipeline (a valid list with three services in three different
+  statuses), or EC-01 (an unreachable national list) end to end, because no fixture LOTL
+  references tl-national-tampered.xml, tl-national-three-statuses.xml, or an unreachable
+  location. This LOTL variant, added by task 15, points at a mix of:
+    - tl-national-b-valid.xml (BB, granted)              -> AC-01/AC-02 "other lists are fine"
+    - tl-national-tampered.xml (ZZ, signature broken)     -> AC-02 / ES-02(list-level)
+    - tl-national-three-statuses.xml (CC, three statuses) -> AC-03 through a real sync
+    - a location whose hostname is never registered as a network alias in the container
+      test -> EC-01 (deterministic DNS failure, not a stopped-container timing race)
+-->
+<TrustServiceStatusList xmlns="http://uri.etsi.org/02231/v2#"
+                         xmlns:ns2="http://www.w3.org/2000/09/xmldsig#"
+                         xmlns:ns3="http://uri.etsi.org/02231/v2/additionaltypes#"
+                         xmlns:ns4="http://uri.etsi.org/01903/v1.3.2#"
+                         xmlns:ns5="http://uri.etsi.org/TrstSvc/SvcInfoExt/eSigDir-1999-93-EC-TrustedList/#"
+                         Id="EUDISTACK-TEST-LOTL-MIXED" TSLTag="http://uri.etsi.org/19612/TSLTag">
+    <SchemeInformation>
+        <TSLVersionIdentifier>5</TSLVersionIdentifier>
+        <TSLSequenceNumber>1</TSLSequenceNumber>
+        <TSLType>http://uri.etsi.org/TrstSvc/TrustedList/TSLType/EUlistofthelists</TSLType>
+        <SchemeOperatorName>
+            <Name xml:lang="en">EUDIStack Test Fixture Operator</Name>
+        </SchemeOperatorName>
+        <SchemeOperatorAddress>
+            <PostalAddresses>
+                <PostalAddress xml:lang="en">
+                    <StreetAddress>Fixture Street 1</StreetAddress>
+                    <Locality>Test City</Locality>
+                    <PostalCode>00000</PostalCode>
+                    <CountryName>EU</CountryName>
+                </PostalAddress>
+            </PostalAddresses>
+            <ElectronicAddress>
+                <URI xml:lang="en">mailto:fixtures@eudistack.test</URI>
+            </ElectronicAddress>
+        </SchemeOperatorAddress>
+        <SchemeName>
+            <Name xml:lang="en">EUDIStack test fixture (mixed) — not a real EU List of Trusted Lists</Name>
+        </SchemeName>
+        <SchemeInformationURI>
+            <URI xml:lang="en">https://fixtures.eudistack.test/lotl-legalnotice.html</URI>
+        </SchemeInformationURI>
+        <StatusDeterminationApproach>http://uri.etsi.org/TrstSvc/TrustedList/StatusDetn/EUlistofthelists</StatusDeterminationApproach>
+        <SchemeTypeCommunityRules>
+            <URI xml:lang="en">http://uri.etsi.org/TrstSvc/TrustedList/schemerules/EUlistofthelists</URI>
+        </SchemeTypeCommunityRules>
+        <SchemeTerritory>EU</SchemeTerritory>
+        <PolicyOrLegalNotice>
+            <TSLLegalNotice xml:lang="en">Test fixture for EUD-227 (task 15). Not a real official EU List of Trusted Lists. Signed with a throwaway test certificate, never served from a real endpoint.</TSLLegalNotice>
+        </PolicyOrLegalNotice>
+        <HistoricalInformationPeriod>0</HistoricalInformationPeriod>
+        <PointersToOtherTSL>
+            <OtherTSLPointer>
+                <ServiceDigitalIdentities>
+                    <ServiceDigitalIdentity>
+                        <DigitalId>
+                            <X509Certificate>{{TEST_CA_CERTIFICATE_BASE64}}</X509Certificate>
+                        </DigitalId>
+                    </ServiceDigitalIdentity>
+                </ServiceDigitalIdentities>
+                <TSLLocation>{{TL_NATIONAL_B_URL}}</TSLLocation>
+                <AdditionalInformation>
+                    <OtherInformation>
+                        <TSLType>http://uri.etsi.org/TrstSvc/TrustedList/TSLType/EUgeneric</TSLType>
+                    </OtherInformation>
+                    <OtherInformation>
+                        <SchemeTerritory>BB</SchemeTerritory>
+                    </OtherInformation>
+                    <OtherInformation>
+                        <ns3:MimeType>application/vnd.etsi.tsl+xml</ns3:MimeType>
+                    </OtherInformation>
+                </AdditionalInformation>
+            </OtherTSLPointer>
+            <OtherTSLPointer>
+                <ServiceDigitalIdentities>
+                    <ServiceDigitalIdentity>
+                        <DigitalId>
+                            <X509Certificate>{{TEST_CA_CERTIFICATE_BASE64}}</X509Certificate>
+                        </DigitalId>
+                    </ServiceDigitalIdentity>
+                </ServiceDigitalIdentities>
+                <TSLLocation>{{TL_NATIONAL_TAMPERED_URL}}</TSLLocation>
+                <AdditionalInformation>
+                    <OtherInformation>
+                        <TSLType>http://uri.etsi.org/TrstSvc/TrustedList/TSLType/EUgeneric</TSLType>
+                    </OtherInformation>
+                    <OtherInformation>
+                        <SchemeTerritory>ZZ</SchemeTerritory>
+                    </OtherInformation>
+                    <OtherInformation>
+                        <ns3:MimeType>application/vnd.etsi.tsl+xml</ns3:MimeType>
+                    </OtherInformation>
+                </AdditionalInformation>
+            </OtherTSLPointer>
+            <OtherTSLPointer>
+                <ServiceDigitalIdentities>
+                    <ServiceDigitalIdentity>
+                        <DigitalId>
+                            <X509Certificate>{{TEST_CA_CERTIFICATE_BASE64}}</X509Certificate>
+                        </DigitalId>
+                    </ServiceDigitalIdentity>
+                </ServiceDigitalIdentities>
+                <TSLLocation>{{TL_NATIONAL_THREE_STATUSES_URL}}</TSLLocation>
+                <AdditionalInformation>
+                    <OtherInformation>
+                        <TSLType>http://uri.etsi.org/TrstSvc/TrustedList/TSLType/EUgeneric</TSLType>
+                    </OtherInformation>
+                    <OtherInformation>
+                        <SchemeTerritory>CC</SchemeTerritory>
+                    </OtherInformation>
+                    <OtherInformation>
+                        <ns3:MimeType>application/vnd.etsi.tsl+xml</ns3:MimeType>
+                    </OtherInformation>
+                </AdditionalInformation>
+            </OtherTSLPointer>
+            <OtherTSLPointer>
+                <ServiceDigitalIdentities>
+                    <ServiceDigitalIdentity>
+                        <DigitalId>
+                            <X509Certificate>{{TEST_CA_CERTIFICATE_BASE64}}</X509Certificate>
+                        </DigitalId>
+                    </ServiceDigitalIdentity>
+                </ServiceDigitalIdentities>
+                <TSLLocation>{{TL_NATIONAL_UNREACHABLE_URL}}</TSLLocation>
+                <AdditionalInformation>
+                    <OtherInformation>
+                        <TSLType>http://uri.etsi.org/TrstSvc/TrustedList/TSLType/EUgeneric</TSLType>
+                    </OtherInformation>
+                    <OtherInformation>
+                        <SchemeTerritory>UU</SchemeTerritory>
+                    </OtherInformation>
+                    <OtherInformation>
+                        <ns3:MimeType>application/vnd.etsi.tsl+xml</ns3:MimeType>
+                    </OtherInformation>
+                </AdditionalInformation>
+            </OtherTSLPointer>
+        </PointersToOtherTSL>
+        <NextUpdate>
+            <dateTime>{{NEXT_UPDATE}}</dateTime>
+        </NextUpdate>
+        <ListIssueDateTime>{{ISSUE_DATE}}</ListIssueDateTime>
+    </SchemeInformation>
+    <TrustServiceProviderList/>
+</TrustServiceStatusList>

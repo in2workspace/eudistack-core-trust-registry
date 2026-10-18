@@ -1,8 +1,6 @@
 package es.in2.trustregistry.anchors.domain.port;
 
-import es.in2.trustregistry.anchors.domain.model.TrustAnchor;
-
-import java.util.List;
+import es.in2.trustregistry.anchors.domain.model.SyncOutcome;
 
 /**
  * Driven port: reads trust anchors from the official European trust infrastructure
@@ -11,8 +9,13 @@ import java.util.List;
 public interface OfficialTrustListPort {
 
     /**
-     * Synchronises the configured LOTL/TL sources and returns every anchor found.
-     * Implementations MUST verify the signature of each list before returning anchors.
+     * Synchronises the configured LOTL/TL sources.
+     *
+     * <p>Implementations MUST verify the signature of each list before including its anchors,
+     * and MUST process each list independently: one list's verification failure does not abort
+     * the run for the others (EC-01, AC-02). Every discarded list is reported as a
+     * {@link es.in2.trustregistry.anchors.domain.model.ListRejection} in the returned outcome
+     * rather than raised as an exception.
      */
-    List<TrustAnchor> fetchAnchors();
+    SyncOutcome fetchAnchors();
 }
